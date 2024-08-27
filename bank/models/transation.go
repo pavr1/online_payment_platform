@@ -8,10 +8,10 @@ import (
 
 type Transaction struct {
 	base.BaseModel
-	ID          string
-	Date        time.Time
-	Amount      float32
-	FromAccount string
-	ToAccount   string
-	Detail      string
+	ID          string    `json:"id"`
+	Date        time.Time `json:"date"`
+	Amount      float32   `json:"amount"`
+	FromAccount string    `json:"from_account"`
+	ToAccount   string    `json:"to_account"`
+	Detail      string    `json:"details"`
 }

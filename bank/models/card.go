@@ -6,10 +6,14 @@ import (
 
 type Card struct {
 	base.BaseModel
-	ID         string
-	CardNumber string
-	HolderName string
-	ExpDate    string
-	CVV        string
-	account    *Account
+	ID         string   `json:"id"`
+	CardNumber string   `json:"card_number"`
+	HolderName string   `json:"holder_name"`
+	ExpDate    string   `json:"exp_date"`
+	CVV        string   `json:"cvv"`
+	account    *Account `json:"account"`
+}
+
+func (c *Card) GetAmount() float32 {
+	return c.account.Amount
 }

@@ -6,7 +6,7 @@ import (
 
 type Account struct {
 	base.BaseModel
-	ID            string
-	AccountNumber string
-	Amount        float32
+	ID            string  `json:"id"`
+	AccountNumber string  `json:"account_number"`
+	Amount        float32 `json:"amount"`
 }
