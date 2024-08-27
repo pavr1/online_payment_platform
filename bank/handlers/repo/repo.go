@@ -70,7 +70,7 @@ func connectToMongoDB(config *config.Config) (*mongo.Client, error) {
 func (r *RepoHandler) loadCardInfo(fieldName, valueName string) (*models.Card, error) {
 	// Get the database and collection
 	db := r.client.Database(r.Config.MongoDB.Database)
-	collection := db.Collection(r.Config.MongoDB.Collections.Card)
+	collection := db.Collection(r.Config.MongoDB.Card_Collection)
 
 	// Find the document by ID
 	filter := bson.M{fieldName: valueName}
@@ -87,7 +87,7 @@ func (r *RepoHandler) loadCardInfo(fieldName, valueName string) (*models.Card, e
 
 func (r *RepoHandler) logTransaction(session mongo.Session, transaction *models.Transaction) error {
 	// Insert the person into the "people" collection
-	collection := session.Client().Database(r.Config.MongoDB.Database).Collection(r.Config.MongoDB.Collections.Transaction)
+	collection := session.Client().Database(r.Config.MongoDB.Database).Collection(r.Config.MongoDB.Transaction_Collection)
 
 	doc := bson.D{}
 
@@ -166,7 +166,7 @@ func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount flo
 
 	// Get the database and collection
 	db := r.client.Database(r.Config.MongoDB.Database)
-	cardCollection := db.Collection(r.Config.MongoDB.Collections.Card)
+	cardCollection := db.Collection(r.Config.MongoDB.Card_Collection)
 
 	session, err := r.client.StartSession()
 	if err != nil {

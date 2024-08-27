@@ -16,7 +16,7 @@ func main() {
 	router := mux.NewRouter()
 
 	log := setupLogger()
-	config, err := config.NewConfig(log)
+	config, err := config.NewConfig()
 	if err != nil {
 		return
 	}
