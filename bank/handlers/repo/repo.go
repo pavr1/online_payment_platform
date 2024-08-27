@@ -2,8 +2,10 @@ package repo
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pavr1/online_payment_platform/bank/config"
 	"github.com/pavr1/online_payment_platform/bank/models"
 	log "github.com/sirupsen/logrus"
@@ -13,8 +15,7 @@ import (
 )
 
 type IRepoHandler interface {
-	VerifyCard(cardModel *models.Card) (bool, error)
-	LogTransaction(transaction *models.Transaction) error
+	Transfer(fromCard *models.Card, targetAccountNumber string, amount float64, description string) (bool, error)
 }
 
 type RepoHandler struct {
@@ -66,47 +67,27 @@ func connectToMongoDB(config *config.Config) (*mongo.Client, error) {
 	return client, nil
 }
 
-func (r *RepoHandler) VerifyCard(cardModel *models.Card) (bool, error) {
+func (r *RepoHandler) loadCardInfo(fieldName, valueName string) (*models.Card, error) {
 	// Get the database and collection
 	db := r.client.Database(r.Config.MongoDB.Database)
-	collection := db.Collection(r.Config.MongoDB.Collection)
+	collection := db.Collection(r.Config.MongoDB.Collections.Card)
 
 	// Find the document by ID
-	filter := bson.M{"card_number": cardModel.CardNumber}
+	filter := bson.M{fieldName: valueName}
 	var card models.Card
 	err := collection.FindOne(context.Background(), filter).Decode(&card)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			log.WithField("card_number", cardModel.CardNumber).Error("Document not found in MongoDB")
+		log.WithFields(log.Fields{"fieldName": fieldName, "valueName": valueName}).WithError(err).Error("Failed to find document in db")
 
-			return false, nil
-		}
-
-		log.WithError(err).Error("Failed to find document in MongoDB")
-
-		return false, err
+		return nil, err
 	}
 
-	if card.HolderName != cardModel.HolderName {
-		log.WithField("holder_name", cardModel.HolderName).Error("Holder name does not match")
-
-		return false, nil
-	} else if card.ExpDate != cardModel.ExpDate {
-		log.WithField("exp_date", cardModel.ExpDate).Error("Expiration date does not match")
-
-		return false, nil
-	} else if card.CVV != cardModel.CVV {
-		log.WithField("cvv", cardModel.CVV).Error("CVV does not match")
-
-		return false, nil
-	}
-
-	return true, nil
+	return &card, nil
 }
 
-func (r *RepoHandler) LogTransaction(transaction *models.Transaction) error {
+func (r *RepoHandler) logTransaction(session mongo.Session, transaction *models.Transaction) error {
 	// Insert the person into the "people" collection
-	collection := r.client.Database(r.Config.MongoDB.Database).Collection(r.Config.MongoDB.Collection)
+	collection := session.Client().Database(r.Config.MongoDB.Database).Collection(r.Config.MongoDB.Collections.Transaction)
 
 	doc := bson.D{}
 
@@ -119,13 +100,13 @@ func (r *RepoHandler) LogTransaction(transaction *models.Transaction) error {
 	doc = append(doc, bson.E{Key: "details", Value: transaction.Detail})
 
 	// Convert the document to BSON
-	personBSON, err := bson.Marshal(doc)
+	bson, err := bson.Marshal(doc)
 	if err != nil {
 		log.WithError(err).Error("Failed to marshal person to BSON")
 		return err
 	}
 
-	_, err = collection.InsertOne(context.Background(), personBSON)
+	_, err = collection.InsertOne(context.Background(), bson)
 	if err != nil {
 		log.WithError(err).Error("Failed to insert person into MongoDB")
 
@@ -133,6 +114,120 @@ func (r *RepoHandler) LogTransaction(transaction *models.Transaction) error {
 	}
 
 	log.WithField("id", transaction.ID).Info("Transaction inserted successfully")
+
+	return nil
+}
+
+func (r *RepoHandler) Transfer(fromCard *models.Card, targetAccountNumber string, amount float64, description string) (bool, error) {
+	dbFromCard, err := r.loadCardInfo("card_number", fromCard.CardNumber)
+	if err != nil {
+		return false, err
+	}
+	if fromCard.HolderName != dbFromCard.HolderName {
+		log.WithField("HolderName", fromCard.HolderName).Error("Invalid Holder Name")
+		return false, fmt.Errorf("invalid request, please check your card information")
+	}
+	if fromCard.ExpDate != dbFromCard.ExpDate {
+		log.WithField("ExpDate", fromCard.ExpDate).Error("Invalid Expiration Date")
+		return false, fmt.Errorf("invalid request, please check your card information")
+	}
+	if fromCard.CVV != dbFromCard.CVV {
+		log.WithField("CVV", fromCard.CVV).Error("Invalid CVV")
+		return false, fmt.Errorf("invalid request, please check your card information")
+	}
+
+	fromCardCurrentAmount := dbFromCard.GetAmount()
+	if fromCardCurrentAmount < amount {
+		log.WithField("amount", amount).Error("Insufficient balance")
+		return false, fmt.Errorf("invalid request, Insuficient balance")
+	}
+
+	dbFromCard.SetAmount(fromCardCurrentAmount - amount)
+
+	dbToCard, err := r.loadCardInfo("account.account_number", targetAccountNumber)
+	if err != nil {
+		return false, err
+	}
+
+	dbToCard.SetAmount(dbToCard.GetAmount() + amount)
+
+	err = r.startTransaction(dbFromCard, dbToCard, amount, description)
+
+	transactionDone := err == nil
+	return transactionDone, err
+}
+
+func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount float64, description string) error {
+	log.WithFields(log.Fields{
+		"fromCard": fromCard,
+		"toCard":   toCard,
+		"amount":   amount,
+	}).Info("Starting Transaction...")
+
+	// Get the database and collection
+	db := r.client.Database(r.Config.MongoDB.Database)
+	cardCollection := db.Collection(r.Config.MongoDB.Collections.Card)
+
+	session, err := r.client.StartSession()
+	if err != nil {
+		log.WithError(err).Error("Failed to start transactional session")
+
+		return err
+	}
+	defer session.EndSession(context.Background())
+
+	err = session.StartTransaction()
+	if err != nil {
+		log.WithError(err).Error("Failed to start transaction")
+
+		return err
+	}
+
+	log.WithField("fromCard", fromCard).Info("Updaing from card...")
+	// Update the document by ID
+	filter := bson.M{"id": fromCard.ID}
+	update := bson.M{"$set": fromCard}
+	_, err = cardCollection.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		log.WithError(err).Error("Failed to update from card in db")
+
+		return err
+	}
+
+	log.WithField("toCard", toCard).Info("Updaing to card...")
+	// Update the document by ID
+	filter = bson.M{"id": toCard.ID}
+	update = bson.M{"$set": toCard}
+	_, err = cardCollection.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		log.WithError(err).Error("Failed to update to card in db")
+
+		return err
+	}
+
+	transaction := models.Transaction{
+		ID:          uuid.New().String(),
+		Date:        time.Now(),
+		Amount:      amount,
+		FromAccount: fromCard.CardNumber,
+		ToAccount:   toCard.CardNumber,
+		Detail:      description,
+	}
+
+	r.logTransaction(session, &transaction)
+
+	log.WithField("id", transaction.ID).Info("Transaction logs inserted successfully")
+
+	// Commit the transaction
+	if err := session.CommitTransaction(context.Background()); err != nil {
+		log.Error("Failed to commit transaction")
+	}
+
+	log.WithFields(log.Fields{
+		"fromCard": fromCard,
+		"toCard":   toCard,
+		"amount":   amount,
+	}).Info("Transaction committed")
 
 	return nil
 }

@@ -13,9 +13,13 @@ type Config struct {
 		Port int `mapstructure:"port"`
 	} `mapstructure:"server"`
 	MongoDB struct {
-		Uri        string `mapstructure:"uri"`
-		Database   string `mapstructure:"database"`
-		Collection string `mapstructure:"collection"`
+		Uri         string `mapstructure:"uri"`
+		Database    string `mapstructure:"database"`
+		Collections struct {
+			Card        string `mapstructure:"card"`
+			Customer    string `mapstructure:"customer"`
+			Transaction string `mapstructure:"transaction"`
+		} `mapstructure:"collections"`
 		//pvillalobos add this to a secret later
 		Username string `mapstructure:"username"`
 		Password string `mapstructure:"password"`

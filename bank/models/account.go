@@ -8,5 +8,5 @@ type Account struct {
 	base.BaseModel
 	ID            string  `json:"id"`
 	AccountNumber string  `json:"account_number"`
-	Amount        float32 `json:"amount"`
+	Amount        float64 `json:"amount"`
 }

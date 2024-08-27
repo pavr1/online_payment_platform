@@ -14,6 +14,10 @@ type Card struct {
 	account    *Account `json:"account"`
 }
 
-func (c *Card) GetAmount() float32 {
+func (c *Card) GetAmount() float64 {
 	return c.account.Amount
+}
+
+func (c *Card) SetAmount(amount float64) {
+	c.account.Amount = amount
 }

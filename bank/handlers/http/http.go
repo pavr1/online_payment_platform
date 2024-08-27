@@ -2,6 +2,7 @@ package http
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/pavr1/online_payment_platform/bank/config"
 	"github.com/pavr1/online_payment_platform/bank/handlers/repo"
@@ -25,7 +26,7 @@ func NewHttpHandler(log *log.Logger, config *config.Config, repoHandler repo.IRe
 	}
 }
 
-func (h *HttpHandler) VerifyCard(r *http.Request, w http.ResponseWriter) {
+func (h *HttpHandler) Transfer(r *http.Request, w http.ResponseWriter) {
 	cardNumber := r.Header.Get("card_number")
 	if cardNumber == "" {
 		h.log.Error("Card number is required")
@@ -60,14 +61,41 @@ func (h *HttpHandler) VerifyCard(r *http.Request, w http.ResponseWriter) {
 		return
 	}
 
-	cardModel := &models.Card{
+	targetAccountNumber := r.Header.Get("target_account_number")
+	if targetAccountNumber == "" {
+		h.log.Error("Target account number is required")
+
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Target account number is required"))
+		return
+	}
+
+	amount := r.Header.Get("amount")
+	if amount == "" {
+		h.log.Error("Amount is required")
+
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Amount is required"))
+		return
+	}
+
+	float64Amount, err := strconv.ParseFloat(amount, 32)
+	if err != nil {
+		h.log.WithError(err).Error("Failed to convert amount to float32")
+
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Failed to convert amount to float32"))
+		return
+	}
+
+	fromCardInfo := &models.Card{
 		CardNumber: cardNumber,
 		HolderName: holderName,
 		ExpDate:    expDate,
 		CVV:        cvv,
 	}
 
-	isValid, err := h.repo.VerifyCard(cardModel)
+	isValid, err := h.repo.Transfer(fromCardInfo, targetAccountNumber, float64Amount, "Payment Process")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
