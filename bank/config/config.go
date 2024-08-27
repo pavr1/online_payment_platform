@@ -73,12 +73,6 @@ func NewConfig() (*Config, error) {
 		return nil, errors.New("MONGODB_PASSWORD is not set")
 	}
 
-	mongodb_role := os.Getenv("MONGODB_ROLE")
-	if mongodb_role == "" {
-		log.Error("MONGODB_ROLE is not set")
-		return nil, errors.New("MONGODB_ROLE is not set")
-	}
-
 	var config = Config{}
 	config.Server.Port = portInt
 	config.MongoDB.Uri = mongodb_uri
