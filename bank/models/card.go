@@ -1,11 +1,6 @@
 package models
 
-import (
-	"github.com/pavr1/online_payment_platform/bank/models/base"
-)
-
 type Card struct {
-	base.BaseModel
 	ID         string   `json:"id"`
 	CardNumber string   `json:"card_number"`
 	HolderName string   `json:"holder_name"`
