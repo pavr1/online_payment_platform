@@ -12,13 +12,18 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type IRepoHandler interface {
+	VerifyCard(cardModel *models.Card) (bool, error)
+	LogTransaction(transaction *models.Transaction) error
+}
+
 type RepoHandler struct {
 	log    *log.Logger
 	Config *config.Config
 	client *mongo.Client
 }
 
-func NewRepoHandler(log *log.Logger, config *config.Config) (*RepoHandler, error) {
+func NewRepoHandler(log *log.Logger, config *config.Config) (IRepoHandler, error) {
 	client, err := connectToMongoDB(config)
 	if err != nil {
 		log.WithField("error", err).Error("Failed to connect to MongoDB")

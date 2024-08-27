@@ -12,10 +12,6 @@ type Config struct {
 	Server struct {
 		Port int `mapstructure:"port"`
 	} `mapstructure:"server"`
-	Auth struct {
-		Path string `mapstructure:"path"`
-		Host string `mapstructure:"host"`
-	} `mapstructure:"auth"`
 	MongoDB struct {
 		Uri        string `mapstructure:"uri"`
 		Database   string `mapstructure:"database"`
