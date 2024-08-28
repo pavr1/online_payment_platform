@@ -6,18 +6,18 @@ type Card struct {
 	HolderName string    `json:"holder_name"`
 	ExpDate    string    `json:"exp_date"`
 	CVV        string    `json:"cvv"`
-	account    *Account  `json:"account"`
-	customer   *Customer `json:"customer"`
+	Account    *Account  `json:"account"`
+	Customer   *Customer `json:"customer"`
 }
 
 func (c *Card) GetAmount() float64 {
-	return c.account.Amount
+	return c.Account.Amount
 }
 
 func (c *Card) SetAmount(amount float64) {
-	c.account.Amount = amount
+	c.Account.Amount = amount
 }
 
 func (c *Card) GetCustomerName() string {
-	return c.customer.FirstName + " " + c.customer.LastName
+	return c.Customer.FirstName + " " + c.Customer.LastName
 }

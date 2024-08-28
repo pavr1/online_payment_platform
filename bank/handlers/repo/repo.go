@@ -16,6 +16,7 @@ import (
 
 type IRepoHandler interface {
 	Transfer(fromCard *models.Card, targetAccountNumber string, amount float64, description string) (bool, error)
+	FillupData(cards []*models.Card) error
 }
 
 type RepoHandler struct {
@@ -118,45 +119,6 @@ func (r *RepoHandler) logTransaction(session mongo.Session, transaction *models.
 	return nil
 }
 
-func (r *RepoHandler) Transfer(fromCard *models.Card, targetAccountNumber string, amount float64, description string) (bool, error) {
-	dbFromCard, err := r.loadCardInfo("card_number", fromCard.CardNumber)
-	if err != nil {
-		return false, err
-	}
-	if fromCard.HolderName != dbFromCard.HolderName {
-		log.WithField("HolderName", fromCard.HolderName).Error("Invalid Holder Name")
-		return false, fmt.Errorf("invalid request, please check your card information")
-	}
-	if fromCard.ExpDate != dbFromCard.ExpDate {
-		log.WithField("ExpDate", fromCard.ExpDate).Error("Invalid Expiration Date")
-		return false, fmt.Errorf("invalid request, please check your card information")
-	}
-	if fromCard.CVV != dbFromCard.CVV {
-		log.WithField("CVV", fromCard.CVV).Error("Invalid CVV")
-		return false, fmt.Errorf("invalid request, please check your card information")
-	}
-
-	fromCardCurrentAmount := dbFromCard.GetAmount()
-	if fromCardCurrentAmount < amount {
-		log.WithField("amount", amount).Error("Insufficient balance")
-		return false, fmt.Errorf("invalid request, Insuficient balance")
-	}
-
-	dbFromCard.SetAmount(fromCardCurrentAmount - amount)
-
-	dbToCard, err := r.loadCardInfo("account.account_number", targetAccountNumber)
-	if err != nil {
-		return false, err
-	}
-
-	dbToCard.SetAmount(dbToCard.GetAmount() + amount)
-
-	err = r.startTransaction(dbFromCard, dbToCard, amount, description)
-
-	transactionDone := err == nil
-	return transactionDone, err
-}
-
 func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount float64, description string) error {
 	log.WithFields(log.Fields{
 		"fromCard": fromCard,
@@ -228,6 +190,61 @@ func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount flo
 		"toCard":   toCard,
 		"amount":   amount,
 	}).Info("Transaction committed")
+
+	return nil
+}
+
+func (r *RepoHandler) Transfer(fromCard *models.Card, targetAccountNumber string, amount float64, description string) (bool, error) {
+	dbFromCard, err := r.loadCardInfo("card_number", fromCard.CardNumber)
+	if err != nil {
+		return false, err
+	}
+	if fromCard.HolderName != dbFromCard.HolderName {
+		log.WithField("HolderName", fromCard.HolderName).Error("Invalid Holder Name")
+		return false, fmt.Errorf("invalid request, please check your card information")
+	}
+	if fromCard.ExpDate != dbFromCard.ExpDate {
+		log.WithField("ExpDate", fromCard.ExpDate).Error("Invalid Expiration Date")
+		return false, fmt.Errorf("invalid request, please check your card information")
+	}
+	if fromCard.CVV != dbFromCard.CVV {
+		log.WithField("CVV", fromCard.CVV).Error("Invalid CVV")
+		return false, fmt.Errorf("invalid request, please check your card information")
+	}
+
+	fromCardCurrentAmount := dbFromCard.GetAmount()
+	if fromCardCurrentAmount < amount {
+		log.WithField("amount", amount).Error("Insufficient balance")
+		return false, fmt.Errorf("invalid request, Insuficient balance")
+	}
+
+	dbFromCard.SetAmount(fromCardCurrentAmount - amount)
+
+	dbToCard, err := r.loadCardInfo("account.account_number", targetAccountNumber)
+	if err != nil {
+		return false, err
+	}
+
+	dbToCard.SetAmount(dbToCard.GetAmount() + amount)
+
+	err = r.startTransaction(dbFromCard, dbToCard, amount, description)
+
+	transactionDone := err == nil
+	return transactionDone, err
+}
+
+func (r *RepoHandler) FillupData(cards []*models.Card) error {
+	// Insert the person into the "people" collection
+	collection := r.client.Database(r.Config.MongoDB.Database).Collection(r.Config.MongoDB.Card_Collection)
+
+	for _, card := range cards {
+		_, err := collection.InsertOne(context.Background(), card)
+		if err != nil {
+			log.WithError(err).Error("Failed to insert card information")
+
+			return err
+		}
+	}
 
 	return nil
 }

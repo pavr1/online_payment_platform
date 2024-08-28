@@ -28,6 +28,7 @@ func main() {
 	httpHandler := _http.NewHttpHandler(log, config, repoHandler)
 
 	router.HandleFunc("/transfer", httpHandler.Transfer())
+	router.HandleFunc("/fillup", httpHandler.Fillup())
 
 	log.WithField("port", config.Server.Port).Info("Listening to Server...")
 	// Start the HTTP server
