@@ -41,9 +41,6 @@ This is the Acquiring Bank, responsible of checking accounts and validate credit
 ### Endpoints
 ------------
 
-*	router.HandleFunc("/transfer", httpHandler.Transfer())
-	router.HandleFunc("/fillup", httpHandler.Fillup())
-
 * `/transfer` - transfer endpoint executes the purchase. This features checks the buyers credit card information, checks the seller's account existance and lastly verifies the buyer's balance is enough before executing the transation. If the transaction is done, the amount will be debited from the credit card and added to the seller's account.
 
 Request Header Values:
