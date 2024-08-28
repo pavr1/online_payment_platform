@@ -12,6 +12,9 @@ type Config struct {
 	Server struct {
 		Port int
 	}
+	Auth struct {
+		Path string
+	}
 	MongoDB struct {
 		Uri                    string
 		Database               string
@@ -35,6 +38,12 @@ func NewConfig() (*Config, error) {
 	if err != nil {
 		log.WithField("error", err).Error("Failed to convert port to int")
 		return nil, err
+	}
+
+	authPath := os.Getenv("AUTH_PATH")
+	if authPath == "" {
+		log.Error("AUTH_PATH is not set")
+		return nil, errors.New("AUTH_PATH is not set")
 	}
 
 	mongodb_uri := os.Getenv("MONGODB_URI")
@@ -75,6 +84,7 @@ func NewConfig() (*Config, error) {
 
 	var config = Config{}
 	config.Server.Port = portInt
+	config.Auth.Path = authPath
 	config.MongoDB.Uri = mongodb_uri
 	config.MongoDB.Database = mongodb_database
 	config.MongoDB.Card_Collection = mongodb_card_collection

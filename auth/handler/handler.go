@@ -99,7 +99,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		token, err := h.createToken(userName, entityName)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			w.Write([]byte("failed to create token"))
 			log.Error(err)
 			return
 		}

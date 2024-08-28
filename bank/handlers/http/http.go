@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/pavr1/online_payment_platform/bank/config"
 	"github.com/pavr1/online_payment_platform/bank/handlers/repo"
@@ -12,21 +13,45 @@ import (
 )
 
 type HttpHandler struct {
-	log    *log.Logger
-	config *config.Config
-	repo   repo.IRepoHandler
+	log               *log.Logger
+	config            *config.Config
+	repo              repo.IRepoHandler
+	bankAuthenticator IBankAuthenticator
 }
 
-func NewHttpHandler(log *log.Logger, config *config.Config, repoHandler repo.IRepoHandler) *HttpHandler {
+func NewHttpHandler(log *log.Logger, config *config.Config, repoHandler repo.IRepoHandler, bankAuthenticator IBankAuthenticator) *HttpHandler {
 	return &HttpHandler{
-		log:    log,
-		config: config,
-		repo:   repoHandler,
+		log:               log,
+		config:            config,
+		repo:              repoHandler,
+		bankAuthenticator: bankAuthenticator,
 	}
 }
 
 func (h *HttpHandler) Transfer() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if token == "" {
+			h.log.Error("Token is required")
+
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Token is required"))
+			return
+		}
+
+		statusCode, body, err := h.bankAuthenticator.IsValidToken(token)
+		if err != nil {
+			w.WriteHeader(statusCode)
+			w.Write([]byte("Failed to validate token"))
+			return
+		}
+
+		if statusCode != http.StatusOK {
+			w.WriteHeader(statusCode)
+			w.Write([]byte(body))
+			return
+		}
+
 		cardNumber := r.Header.Get("card_number")
 		if cardNumber == "" {
 			h.log.Error("Card number is required")
@@ -98,7 +123,7 @@ func (h *HttpHandler) Transfer() func(w http.ResponseWriter, r *http.Request) {
 		status, referenceNumber, err := h.repo.Transfer(fromCardInfo, targetAccountNumber, float64Amount, "Purchase Processed")
 		if err != nil {
 			w.WriteHeader(status)
-			w.Write([]byte(err.Error()))
+			w.Write([]byte("failed making transfer"))
 			return
 		}
 
@@ -301,7 +326,7 @@ func (h *HttpHandler) Fillup() func(w http.ResponseWriter, r *http.Request) {
 		err := h.repo.FillupData(cards)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			w.Write([]byte("Failed filling up data"))
 			return
 		}
 
@@ -324,7 +349,7 @@ func (h *HttpHandler) GetTransactionHistory() func(w http.ResponseWriter, r *htt
 		transactions, err := h.repo.GetTransactionHistory(accountNumber)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			w.Write([]byte("Failed to get transaction history"))
 			return
 		}
 
@@ -333,7 +358,7 @@ func (h *HttpHandler) GetTransactionHistory() func(w http.ResponseWriter, r *htt
 			log.WithError(err).Error("Failed to marshal transactions")
 
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			w.Write([]byte("Failed to marshal transactions"))
 			return
 		}
 

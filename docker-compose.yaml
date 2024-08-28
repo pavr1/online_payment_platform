@@ -1,12 +1,21 @@
 version: '3'
 services:
+  auth:
+    image: auth:1.0
+    ports:
+      - "8181:8181"
+    environment:
+      - AUTH_PORT=8181
+      #these 2 values should be added to a secret instead but will leave them here for now.
+      - AUTH_BANK_SECRET_KEY=YmFuay1zZWNyZXQta2V5LWF1dGhlbnRpY2F0aW9u
+      - AUTH_PAYMENT_PLATFORM_SECRET_KEY=cGF5bWVudC1wbGF0Zm9ybS1zZWNyZXQtYXV0aGVudGljYXRpb24=
   bank:
     image: bank:1.0
     ports:
       - "8080:8080"
     environment:
       - SERVER_PORT=8080
-      - AUTH_PATH=http://localhost:8181/auth/token
+      - AUTH_PATH=http://host.docker.internal:8181/auth/token
       - MONGODB_URI=mongodb://admin:password@mongodb:27017/
       - MONGODB_DATABASE=bank
       - MONGODB_CARD_COLLECTION=card
@@ -18,7 +27,7 @@ services:
       - bank-networks
     depends_on:
       - mongodb
-      
+      - auth    
   mongodb:
     image: mongo
     restart: always
@@ -31,7 +40,6 @@ services:
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
       - MONGO_INITDB_ROOT_PASSWORD=password
-
   mongo-express:
     image: mongo-express
     restart: always

@@ -25,7 +25,9 @@ func main() {
 	if err != nil {
 		return
 	}
-	httpHandler := _http.NewHttpHandler(log, config, repoHandler)
+
+	httpBankAuthenticator := _http.NewBankAuthenticator(log, config)
+	httpHandler := _http.NewHttpHandler(log, config, repoHandler, httpBankAuthenticator)
 
 	router.HandleFunc("/transfer", httpHandler.Transfer())
 	router.HandleFunc("/fillup", httpHandler.Fillup())
