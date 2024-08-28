@@ -30,6 +30,16 @@ func NewHttpHandler(log *log.Logger, config *config.Config, tokenProvider provid
 
 func (h *HttpHandler) ProcessPurchase() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			h.log.Error("Method not allowed")
+
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			w.Write([]byte("Method not allowed"))
+			return
+		}
+
+		h.log.Info("Handling purchase request...")
+
 		token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if token == "" {
 			h.log.Error("Token is required")
@@ -41,12 +51,16 @@ func (h *HttpHandler) ProcessPurchase() func(w http.ResponseWriter, r *http.Requ
 
 		statusCode, body, err := h.tokenProvider.IsValidToken(token)
 		if err != nil {
+			h.log.WithError(err).Error("Failed to validate token")
+
 			w.WriteHeader(statusCode)
 			w.Write([]byte("Failed to validate token"))
 			return
 		}
 
 		if statusCode != http.StatusOK {
+			h.log.WithField("StatusCode", statusCode).WithField("Body", body).Error("Failed to validate token")
+
 			w.WriteHeader(statusCode)
 			w.Write([]byte(body))
 			return
@@ -115,12 +129,16 @@ func (h *HttpHandler) ProcessPurchase() func(w http.ResponseWriter, r *http.Requ
 
 		statusCode, body, err = h.bankProvider.ProcessPayment(token, cardNumber, holderName, expDate, cvv, targetAccountNumber, float64Amount)
 		if err != nil {
+			h.log.WithError(err).Error("Failed to process payment with the bank")
+
 			w.WriteHeader(statusCode)
 			w.Write([]byte("Failed to process payment with the bank"))
 			return
 		}
 
 		if statusCode != http.StatusOK {
+			h.log.WithField("StatusCode", statusCode).WithField("Body", body).Error("Processed payment with the bank failed")
+
 			w.WriteHeader(statusCode)
 			w.Write([]byte(body))
 			return

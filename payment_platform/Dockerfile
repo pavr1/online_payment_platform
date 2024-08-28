@@ -28,7 +28,7 @@ COPY --from=builder /app/main .
 COPY go.mod go.sum ./
 
 # Expose port 8080 to the outside world
-EXPOSE 8080
+EXPOSE 8082
 
 # Command to run the executable
 CMD ["./main"]

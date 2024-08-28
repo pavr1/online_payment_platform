@@ -9,6 +9,8 @@ services:
       #these 2 values should be added to a secret instead but will leave them here for now.
       - AUTH_BANK_SECRET_KEY=YmFuay1zZWNyZXQta2V5LWF1dGhlbnRpY2F0aW9u
       - AUTH_PAYMENT_PLATFORM_SECRET_KEY=cGF5bWVudC1wbGF0Zm9ybS1zZWNyZXQtYXV0aGVudGljYXRpb24=
+    networks:
+      - payment-platform-networks
   payment_platform:
     image: payment_platform:1.0
     ports:
@@ -17,19 +19,18 @@ services:
       - SERVER_PORT=8082
       - BANK_HOST=http://localhost:8082
       - BANK_ENTITY_KEY=YmFuay1zZWNyZXQta2V5LWF1dGhlbnRpY2F0aW9u
-      - AUTH_PATH=http://localhost:8181/auth/token
+      - AUTH_PATH=http://auth:8181/auth/token
     networks:
-      - bank-networks
+      - payment-platform-networks
     depends_on:
-      - mongodb
-      - auth    
+      - bank 
   bank:
     image: bank:1.0
     ports:
       - "8080:8080"
     environment:
       - SERVER_PORT=8080
-      - AUTH_PATH=http://localhost:8181/auth/token
+      - AUTH_PATH=http://auth:8181/auth/token
       - MONGODB_URI=mongodb://admin:password@mongodb:27017/
       - MONGODB_DATABASE=bank
       - MONGODB_CARD_COLLECTION=card
@@ -38,7 +39,7 @@ services:
       - MONGODB_USERNAME=admin
       - MONGODB_PASSWORD=password
     networks:
-      - bank-networks
+      - payment-platform-networks
     depends_on:
       - mongodb
       
@@ -48,7 +49,7 @@ services:
     ports:
       - 27017:27017
     networks:
-      - bank-networks
+      - payment-platform-networks
     volumes:
       - ./data:/data/db
     environment:
@@ -61,7 +62,7 @@ services:
     ports:
       - 8081:8081
     networks:
-      - bank-networks
+      - payment-platform-networks
     depends_on:
       - mongodb
     environment:
@@ -72,5 +73,5 @@ services:
       - ME_CONFIG_BASICAUTH_PASSWORD=password
 
 networks:
-  bank-networks:
+  payment-platform-networks:
     driver: bridge

@@ -26,7 +26,7 @@ func main() {
 	bankProvider := providers.NewBankProvider(log, config)
 	httpHandler := _http.NewHttpHandler(log, config, tokenProvider, bankProvider, httpClient)
 
-	router.HandleFunc("/Purchase", httpHandler.ProcessPurchase())
+	router.HandleFunc("/process/payment", httpHandler.ProcessPurchase())
 
 	log.WithField("port", config.Server.Port).Info("Listening to Server...")
 	// Start the HTTP server

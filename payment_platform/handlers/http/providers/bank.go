@@ -30,7 +30,7 @@ func (b *BankProvider) ProcessPayment(token, cardNumber, holderName, expDate, cv
 
 	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
 	if err != nil {
-		b.log.WithError(err).Error("Failed to create request")
+		b.log.WithField("Path", endpoint).WithError(err).Error("Failed to create request")
 
 		return http.StatusInternalServerError, "", err
 	}
