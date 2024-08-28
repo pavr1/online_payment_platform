@@ -97,7 +97,7 @@ func (r *RepoHandler) logTransaction(session mongo.Session, transaction *models.
 	doc = append(doc, bson.E{Key: "id", Value: transaction.ID})
 	doc = append(doc, bson.E{Key: "date", Value: transaction.Date})
 	doc = append(doc, bson.E{Key: "amount", Value: transaction.Amount})
-	doc = append(doc, bson.E{Key: "from_account", Value: transaction.FromAccount})
+	doc = append(doc, bson.E{Key: "from_card", Value: transaction.FromCard})
 	doc = append(doc, bson.E{Key: "to_account", Value: transaction.ToAccount})
 	doc = append(doc, bson.E{Key: "details", Value: transaction.Detail})
 
@@ -169,12 +169,12 @@ func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount flo
 	}
 
 	transaction := models.Transaction{
-		ID:          uuid.New().String(),
-		Date:        time.Now(),
-		Amount:      amount,
-		FromAccount: fromCard.CardNumber,
-		ToAccount:   toCard.CardNumber,
-		Detail:      description,
+		ID:        uuid.New().String(),
+		Date:      time.Now(),
+		Amount:    amount,
+		FromCard:  fromCard.CardNumber,
+		ToAccount: toCard.Account.AccountNumber,
+		Detail:    description,
 	}
 
 	r.logTransaction(session, &transaction)

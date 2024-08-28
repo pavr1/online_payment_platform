@@ -94,7 +94,7 @@ func (h *HttpHandler) Transfer() func(w http.ResponseWriter, r *http.Request) {
 			CVV:        cvv,
 		}
 
-		status, err := h.repo.Transfer(fromCardInfo, targetAccountNumber, float64Amount, "Payment Process")
+		status, err := h.repo.Transfer(fromCardInfo, targetAccountNumber, float64Amount, "Purchase Processed")
 		if err != nil {
 			w.WriteHeader(status)
 			w.Write([]byte(err.Error()))
