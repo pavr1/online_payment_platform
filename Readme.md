@@ -124,9 +124,15 @@ This service creates and verifies tokens for user authentication.
             - X-Entity-Key: Entity Key provided by the bank.
 
             Example:
-            curl --location --request POST 'http://localhost:8081/auth/token' \
+            curl --location --request POST 'http://localhost:8181/auth/token' \
             --header 'X-User-Name: pvillalobos' \
-            --header 'X-Entity-Key: xxxxxxx' 
+            --header 'X-Entity-Name: Bank' \
+            --header 'X-Entity-Key: [key]'
+
+            curl --location --request POST 'http://localhost:8181/auth/token' \
+            --header 'X-User-Name: pvillalobos' \
+            --header 'X-Entity-Name: PaymentPlatform' \
+            --header 'X-Entity-Key: [key]'
 
     - Token Validation (GET)
         Request Header Values:

@@ -1,0 +1,11 @@
+version: '3'
+services:
+  auth:
+    build: .
+    ports:
+      - "8181:8181"
+    environment:
+      - AUTH_PORT=8181
+      #these 2 values should be added to a secret instead but will leave them here for now.
+      - AUTH_BANK_SECRET_KEY=YmFuay1zZWNyZXQta2V5LWF1dGhlbnRpY2F0aW9u
+      - AUTH_PAYMENT_PLATFORM_SECRET_KEY=cGF5bWVudC1wbGF0Zm9ybS1zZWNyZXQtYXV0aGVudGljYXRpb24=
