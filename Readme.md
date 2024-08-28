@@ -23,9 +23,6 @@ With the rapid expansion of e-commerce, there is a pressing need for an efficien
 * List of prerequisites to run the project
 * List of dependencies required -->
 
-### Installation
-------------
-
 * This project is intended to be run locally by using docker-compose, since it was meant to be a tech test. No further features like CI/CD, deployments or any AWS-related features were added. 
 
 ### Running the Project
@@ -93,3 +90,12 @@ type Transaction struct {
 	ToAccount   string    `json:"to_account"`
 	Detail      string    `json:"details"`
 }
+
+
+### Installation
+------------
+Steps:
+* cd ./bank and run `make build`
+* run `docker-compose build && docker-compose up`
+* Hit the following endpoint: `curl http://localhost:8080/fillup` - this will fill up data in the bank database.
+* Verify credit card data has been added. Go to `http://localhost:8081/db/bank/`

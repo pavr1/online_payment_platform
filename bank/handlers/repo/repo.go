@@ -16,7 +16,7 @@ import (
 )
 
 type IRepoHandler interface {
-	Transfer(fromCard *models.Card, targetAccountNumber string, amount float64, description string) (int, error)
+	Transfer(fromCard *models.Card, targetAccountNumber string, amount float64, description string) (int, string, error)
 	FillupData(cards []*models.Card) error
 }
 
@@ -115,12 +115,10 @@ func (r *RepoHandler) logTransaction(session mongo.Session, transaction *models.
 		return err
 	}
 
-	log.WithField("id", transaction.ID).Info("Transaction inserted successfully")
-
 	return nil
 }
 
-func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount float64, description string) error {
+func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount float64, description string) (string, error) {
 	log.WithFields(log.Fields{
 		"fromCard": fromCard,
 		"toCard":   toCard,
@@ -135,7 +133,7 @@ func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount flo
 	if err != nil {
 		log.WithError(err).Error("Failed to start transactional session")
 
-		return err
+		return "", err
 	}
 	defer session.EndSession(context.Background())
 
@@ -143,7 +141,7 @@ func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount flo
 	if err != nil {
 		log.WithError(err).Error("Failed to start transaction")
 
-		return err
+		return "", err
 	}
 
 	log.WithField("fromCard", fromCard).Info("Updaing from card...")
@@ -154,7 +152,7 @@ func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount flo
 	if err != nil {
 		log.WithError(err).Error("Failed to update from card in db")
 
-		return err
+		return "", err
 	}
 
 	log.WithField("toCard", toCard).Info("Updaing to card...")
@@ -165,11 +163,13 @@ func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount flo
 	if err != nil {
 		log.WithError(err).Error("Failed to update to card in db")
 
-		return err
+		return "", err
 	}
 
+	referenceNumber := uuid.New().String()
+
 	transaction := models.Transaction{
-		ID:        uuid.New().String(),
+		ID:        referenceNumber,
 		Date:      time.Now(),
 		Amount:    amount,
 		FromCard:  fromCard.CardNumber,
@@ -184,57 +184,59 @@ func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount flo
 	// Commit the transaction
 	if err := session.CommitTransaction(context.Background()); err != nil {
 		log.Error("Failed to commit transaction")
+
+		return "", err
 	}
 
 	log.WithFields(log.Fields{
-		"fromCard": fromCard,
-		"toCard":   toCard,
+		"fromCard": fromCard.CardNumber,
+		"toCard":   toCard.Account.AccountNumber,
 		"amount":   amount,
 	}).Info("Transaction committed")
 
-	return nil
+	return referenceNumber, nil
 }
 
-func (r *RepoHandler) Transfer(fromCard *models.Card, targetAccountNumber string, amount float64, description string) (int, error) {
+func (r *RepoHandler) Transfer(fromCard *models.Card, targetAccountNumber string, amount float64, description string) (int, string, error) {
 	dbFromCard, err := r.loadCardInfo("cardnumber", fromCard.CardNumber)
 	if err != nil {
-		return http.StatusInternalServerError, err
+		return http.StatusInternalServerError, "", err
 	}
 	if fromCard.HolderName != dbFromCard.HolderName {
 		log.WithField("HolderName", fromCard.HolderName).Error("Invalid Holder Name")
-		return http.StatusBadRequest, fmt.Errorf("invalid request, please check your card information")
+		return http.StatusBadRequest, "", fmt.Errorf("invalid request, please check your card information")
 	}
 	if fromCard.ExpDate != dbFromCard.ExpDate {
 		log.WithField("ExpDate", fromCard.ExpDate).Error("Invalid Expiration Date")
-		return http.StatusBadRequest, fmt.Errorf("invalid request, please check your card information")
+		return http.StatusBadRequest, "", fmt.Errorf("invalid request, please check your card information")
 	}
 	if fromCard.CVV != dbFromCard.CVV {
 		log.WithField("CVV", fromCard.CVV).Error("Invalid CVV")
-		return http.StatusBadRequest, fmt.Errorf("invalid request, please check your card information")
+		return http.StatusBadRequest, "", fmt.Errorf("invalid request, please check your card information")
 	}
 
 	fromCardCurrentAmount := dbFromCard.GetAmount()
 	if fromCardCurrentAmount < amount {
 		log.WithField("amount", amount).Error("Insufficient balance")
-		return http.StatusUnauthorized, fmt.Errorf("invalid request, Insuficient balance")
+		return http.StatusUnauthorized, "", fmt.Errorf("invalid request, Insuficient balance")
 	}
 
 	dbFromCard.SetAmount(fromCardCurrentAmount - amount)
 
 	dbToCard, err := r.loadCardInfo("account.accountnumber", targetAccountNumber)
 	if err != nil {
-		return http.StatusBadRequest, err
+		return http.StatusBadRequest, "", err
 	}
 
 	dbToCard.SetAmount(dbToCard.GetAmount() + amount)
 
-	err = r.startTransaction(dbFromCard, dbToCard, amount, description)
+	referenceNumber, err := r.startTransaction(dbFromCard, dbToCard, amount, description)
 
 	status := http.StatusOK
 	if err != nil {
 		status = http.StatusInternalServerError
 	}
-	return status, err
+	return status, referenceNumber, err
 }
 
 func (r *RepoHandler) FillupData(cards []*models.Card) error {
