@@ -30,6 +30,12 @@ func NewHttpHandler(log *log.Logger, config *config.Config, repoHandler repo.IRe
 
 func (h *HttpHandler) Transfer() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			w.Write([]byte("Method not allowed"))
+			return
+		}
+
 		token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if token == "" {
 			h.log.Error("Token is required")
@@ -337,6 +343,34 @@ func (h *HttpHandler) Fillup() func(w http.ResponseWriter, r *http.Request) {
 
 func (h *HttpHandler) GetTransactionHistory() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			w.Write([]byte("Method not allowed"))
+			return
+		}
+
+		token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if token == "" {
+			h.log.Error("Token is required")
+
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Token is required"))
+			return
+		}
+
+		statusCode, body, err := h.bankAuthenticator.IsValidToken(token)
+		if err != nil {
+			w.WriteHeader(statusCode)
+			w.Write([]byte("Failed to validate token"))
+			return
+		}
+
+		if statusCode != http.StatusOK {
+			w.WriteHeader(statusCode)
+			w.Write([]byte(body))
+			return
+		}
+
 		accountNumber := r.Header.Get("account_number")
 		if accountNumber == "" {
 			h.log.Error("Account Number is required")

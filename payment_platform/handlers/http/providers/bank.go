@@ -1,17 +1,20 @@
 package providers
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 
 	"github.com/pavr1/online_payment_platform/payment_platform/config"
+	"github.com/pavr1/online_payment_platform/payment_platform/models"
 	log "github.com/sirupsen/logrus"
 )
 
 type IBankProvider interface {
 	ProcessPayment(token, cardNumber, holderName, expDate, cvv, targetAccountNumber string, amount float64) (int, string, error)
+	GetHistory(token, accountNumber string) ([]*models.Transaction, error)
 }
 type BankProvider struct {
 	log    *log.Logger
@@ -28,7 +31,7 @@ func NewBankProvider(log *log.Logger, config *config.Config) IBankProvider {
 func (b *BankProvider) ProcessPayment(token, cardNumber, holderName, expDate, cvv, targetAccountNumber string, amount float64) (int, string, error) {
 	endpoint := fmt.Sprintf("%s/transfer", b.config.Bank.Host)
 
-	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
+	req, err := http.NewRequest(http.MethodPost, endpoint, nil)
 	if err != nil {
 		b.log.WithField("Path", endpoint).WithError(err).Error("Failed to create request")
 
@@ -62,4 +65,45 @@ func (b *BankProvider) ProcessPayment(token, cardNumber, holderName, expDate, cv
 	}
 
 	return resp.StatusCode, string(body), nil
+}
+
+func (b *BankProvider) GetHistory(token, accountNumber string) ([]*models.Transaction, error) {
+	endpoint := fmt.Sprintf("%s/history", b.config.Bank.Host)
+
+	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
+	if err != nil {
+		b.log.WithField("Path", endpoint).WithError(err).Error("Failed to create request")
+
+		return []*models.Transaction{}, err
+	}
+
+	//todo: encrypt all this data
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("account_number", accountNumber)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		b.log.WithField("Path", endpoint).WithError(err).Error("Failed to send request")
+
+		return []*models.Transaction{}, err
+	}
+
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		b.log.WithError(err).Error("Failed to read response")
+
+		return []*models.Transaction{}, err
+	}
+
+	transactions := []*models.Transaction{}
+	err = json.Unmarshal(body, &transactions)
+	if err != nil {
+		b.log.WithError(err).Error("Failed to unmarshal response")
+
+		return []*models.Transaction{}, err
+	}
+
+	return transactions, nil
 }
