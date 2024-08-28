@@ -22,7 +22,7 @@ func main() {
 	}
 
 	router := http.NewServeMux()
-	authHandler := handler.NewHandler(log, []byte(config.Server.SecretKey))
+	authHandler := handler.NewHandler(log, []byte(config.Server.BankSecretKey), []byte(config.Server.PaymentPlatformSecretKey))
 
 	router.HandleFunc("/auth/token", authHandler.ServeHTTP)
 

@@ -110,6 +110,39 @@ type Transaction struct {
 }
 
 
+## AUTH
+-----------------
+This service creates and verifies tokens for user authentication.
+
+### Endpoints
+------------
+
+* `/auth/token` - This endpoint is used for two different purposes:
+    - Token Creation (POST)
+        Request Header Values:
+            - X-User-Name: user name.
+            - X-Entity-Key: Entity Key provided by the bank.
+
+            Example:
+            curl --location --request POST 'http://localhost:8081/auth/token' \
+            --header 'X-User-Name: pvillalobos' \
+            --header 'X-Entity-Key: xxxxxxx' 
+
+    - Token Validation (GET)
+        Request Header Values:
+            - Authorization Bearer [token]
+
+            Example:
+            curl --location 'http://localhost:8081/auth/token' \
+                --header 'Authorization: Bearer [token]'
+
+
+### Models
+---------
+No models available
+
+
+
 
 ### Installation
 ------------
