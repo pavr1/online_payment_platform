@@ -47,13 +47,29 @@ Request Header Values:
     - card_number: Buyers credit card number.
     - holder_name: Buyers credit card holder name.
     - exp_date: Credit card expiration date.
-    - cvv: Credit card security code,
-    - target_account_number: Seller's account number
+    - cvv: Credit card security code.
+    - target_account_number: Seller's account number.
     - amount: Transaction Amount.
+
+    Example:
+    curl --location 'http://localhost:8080/transfer' \
+    --header 'card_number: 4532-1143-8765-3211' \
+    --header 'holder_name: Emily Chen' \
+    --header 'exp_date: 02/2027' \
+    --header 'cvv: 987' \
+    --header 'target_account_number: 9876543210' \
+    --header 'amount: 1'
 
 * `/fillup` - fillup endpoint adds random data to the mongodb database, this is only used for testing purposes. No parameters needed.
 
+    Example:
+    curl http://localhost:8080/fillup
+
 * `/history` - history endpoint retrieves all payment history done to a specific account number.
+
+    Example:
+    curl --location 'http://localhost:8080/history' \
+    --header 'account_number: 9876543210'
 
 Request Header Values:
     - account_number: Account number to be retrieved.
@@ -92,6 +108,7 @@ type Transaction struct {
 	ToAccount   string    `json:"to_account"`
 	Detail      string    `json:"details"`
 }
+
 
 
 ### Installation
