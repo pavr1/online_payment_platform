@@ -154,6 +154,8 @@ No models available
 ------------
 Steps:
 * cd ./bank and run `make build`
-* run `docker-compose build && docker-compose up`
+* cd ./auth and run `make build`
+* cd to main online_payment_platform dir and run `docker-compose build && docker-compose up`
 * Hit the following endpoint: `curl http://localhost:8080/fillup` - this will fill up data in the bank database.
 * Verify credit card data has been added. Go to `http://localhost:8081/db/bank/`
+* Look for any credit card with enough balance, then look for another record's account number. Transfers are done with FROM Credit Card TO Account Number.
