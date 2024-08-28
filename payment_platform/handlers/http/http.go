@@ -2,6 +2,7 @@ package http
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/pavr1/online_payment_platform/payment_platform/config"
@@ -13,15 +14,17 @@ type HttpHandler struct {
 	log           *log.Logger
 	config        *config.Config
 	tokenProvider providers.ITokenProvider
+	bankProvider  providers.IBankProvider
 	client        *http.Client
 }
 
-func NewHttpHandler(log *log.Logger, config *config.Config, tokenProvider providers.ITokenProvider, client *http.Client) *HttpHandler {
+func NewHttpHandler(log *log.Logger, config *config.Config, tokenProvider providers.ITokenProvider, bankProvider providers.IBankProvider, client *http.Client) *HttpHandler {
 	return &HttpHandler{
 		log:           log,
 		config:        config,
 		tokenProvider: tokenProvider,
 		client:        client,
+		bankProvider:  bankProvider,
 	}
 }
 
@@ -101,37 +104,29 @@ func (h *HttpHandler) ProcessPurchase() func(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
-		req, err := http.NewRequest(http.MethodGet, h.config.Bank.Path, nil)
+		float64Amount, err := strconv.ParseFloat(amount, 32)
 		if err != nil {
-			h.log.WithError(err).Error("Failed to create request")
+			h.log.WithError(err).Error("Failed to convert amount to float32")
 
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Failed to create request"))
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Failed to convert amount to float32"))
 			return
 		}
 
-		//todo: encrypt all this data
-		req.Header.Set("Authorization", "Bearer "+token)
-		req.Header.Set("card_number", cardNumber)
-		req.Header.Set("holder_name", holderName)
-		req.Header.Set("exp_date", expDate)
-		req.Header.Set("cvv", cvv)
-		req.Header.Set("target_account_number", targetAccountNumber)
-		req.Header.Set("amount", amount)
-		req.Header.Set("X-Entity-Key", "YmFuay1zZWNyZXQta2V5LWF1dGhlbnRpY2F0aW9u")
-
-		resp, err := http.DefaultClient.Do(req)
+		statusCode, body, err = h.bankProvider.ProcessPayment(token, cardNumber, holderName, expDate, cvv, targetAccountNumber, float64Amount)
 		if err != nil {
-			h.log.WithField("Path", h.config.Auth.Path).WithError(err).Error("Failed to send request to the bank")
-
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Failed to comunicate wuth the bank"))
+			w.WriteHeader(statusCode)
+			w.Write([]byte("Failed to process payment with the bank"))
 			return
 		}
 
-		defer resp.Body.Close()
+		if statusCode != http.StatusOK {
+			w.WriteHeader(statusCode)
+			w.Write([]byte(body))
+			return
+		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Payment processed successfully"))
+		w.Write([]byte("Payment processed successfully.\nReference Number: " + body))
 	}
 }

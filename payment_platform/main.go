@@ -23,7 +23,8 @@ func main() {
 
 	httpClient := &http.Client{}
 	tokenProvider := providers.NewTokenProvider(log, config)
-	httpHandler := _http.NewHttpHandler(log, config, tokenProvider, httpClient)
+	bankProvider := providers.NewBankProvider(log, config)
+	httpHandler := _http.NewHttpHandler(log, config, tokenProvider, bankProvider, httpClient)
 
 	router.HandleFunc("/Purchase", httpHandler.ProcessPurchase())
 

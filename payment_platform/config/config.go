@@ -13,7 +13,7 @@ type Config struct {
 		Port int
 	}
 	Bank struct {
-		Path      string
+		Host      string
 		EntityKey string
 	}
 	Auth struct {
@@ -34,27 +34,27 @@ func NewConfig() (*Config, error) {
 		return nil, err
 	}
 
-	bankPath := os.Getenv("BANK_PATH")
-	if bankPath == "" {
-		log.Error("BANK_PATH is not set")
-		return nil, errors.New("BANK_PATH is not set")
+	bankHost := os.Getenv("BANK_HOST")
+	if bankHost == "" {
+		log.Error("BANK_HOST is not set")
+		return nil, errors.New("BANK_HOST is not set")
 	}
 
 	bankEntityKey := os.Getenv("BANK_ENTITY_KEY")
-	if bankPath == "" {
+	if bankEntityKey == "" {
 		log.Error("BANK_ENTITY_KEY is not set")
 		return nil, errors.New("BANK_ENTITY_KEY is not set")
 	}
 
 	authPath := os.Getenv("AUTH_PATH")
-	if bankPath == "" {
+	if authPath == "" {
 		log.Error("AUTH_PATH is not set")
 		return nil, errors.New("AUTH_PATH is not set")
 	}
 
 	var config = Config{}
 	config.Server.Port = portInt
-	config.Bank.Path = bankPath
+	config.Bank.Host = bankHost
 	config.Bank.EntityKey = bankEntityKey
 	config.Auth.Path = authPath
 
