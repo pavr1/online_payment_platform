@@ -137,6 +137,7 @@ This service creates and verifies tokens for user authentication.
     - Token Validation (GET)
         Request Header Values:
             - Authorization Bearer [token]
+            - X-Entity-Key: Entity Key provided by the bank.
 
             Example:
             curl --location 'http://localhost:8081/auth/token' \
