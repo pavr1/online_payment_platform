@@ -15,7 +15,7 @@ services:
       - MONGODB_USERNAME=admin
       - MONGODB_PASSWORD=password
     networks:
-      - bank-networks
+      - payment-platform-networks
     depends_on:
       - mongodb
       
@@ -25,7 +25,7 @@ services:
     ports:
       - 27017:27017
     networks:
-      - bank-networks
+      - payment-platform-networks
     volumes:
       - ./data:/data/db
     environment:
@@ -38,7 +38,7 @@ services:
     ports:
       - 8081:8081
     networks:
-      - bank-networks
+      - payment-platform-networks
     depends_on:
       - mongodb
     environment:
@@ -49,5 +49,5 @@ services:
       - ME_CONFIG_BASICAUTH_PASSWORD=password
 
 networks:
-  bank-networks:
+  payment-platform-networks:
     driver: bridge

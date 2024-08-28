@@ -145,6 +145,6 @@ func (h *HttpHandler) ProcessPurchase() func(w http.ResponseWriter, r *http.Requ
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Payment processed successfully.\nReference Number: " + body))
+		w.Write([]byte("Payment processed successfully.\n" + body))
 	}
 }

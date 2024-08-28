@@ -17,7 +17,7 @@ services:
       - "8082:8082"
     environment:
       - SERVER_PORT=8082
-      - BANK_HOST=http://localhost:8082
+      - BANK_HOST=http://bank:8080
       - BANK_ENTITY_KEY=YmFuay1zZWNyZXQta2V5LWF1dGhlbnRpY2F0aW9u
       - AUTH_PATH=http://auth:8181/auth/token
     networks:
