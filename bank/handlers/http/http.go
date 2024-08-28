@@ -1,6 +1,7 @@
 package http
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -306,5 +307,37 @@ func (h *HttpHandler) Fillup() func(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Data added successfully"))
+	}
+}
+
+func (h *HttpHandler) GetTransactionHistory() func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		accountNumber := r.Header.Get("account_number")
+		if accountNumber == "" {
+			h.log.Error("Account Number is required")
+
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Account Number is required"))
+			return
+		}
+
+		transactions, err := h.repo.GetTransactionHistory(accountNumber)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
+
+		transacionBytes, err := json.Marshal(transactions)
+		if err != nil {
+			log.WithError(err).Error("Failed to marshal transactions")
+
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write(transacionBytes)
 	}
 }

@@ -56,6 +56,11 @@ Request Header Values:
 
 * `/fillup` - fillup endpoint adds random data to the mongodb database, this is only used for testing purposes. No parameters needed.
 
+* `/history` - history endpoint retrieves all payment history done to a specific account number.
+
+Request Header Values:
+    - account_number: Account number to be retrieved.
+
 
 ### Models
 ---------

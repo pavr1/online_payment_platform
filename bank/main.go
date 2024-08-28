@@ -29,6 +29,7 @@ func main() {
 
 	router.HandleFunc("/transfer", httpHandler.Transfer())
 	router.HandleFunc("/fillup", httpHandler.Fillup())
+	router.HandleFunc("/history", httpHandler.GetTransactionHistory())
 
 	log.WithField("port", config.Server.Port).Info("Listening to Server...")
 	// Start the HTTP server

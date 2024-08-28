@@ -11,12 +11,14 @@ import (
 	"github.com/pavr1/online_payment_platform/bank/models"
 	log "github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type IRepoHandler interface {
 	Transfer(fromCard *models.Card, targetAccountNumber string, amount float64, description string) (int, string, error)
+	GetTransactionHistory(accountNumber string) ([]*models.Transaction, error)
 	FillupData(cards []*models.Card) error
 }
 
@@ -170,7 +172,7 @@ func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount flo
 
 	transaction := models.Transaction{
 		ID:        referenceNumber,
-		Date:      time.Now(),
+		Date:      primitive.NewDateTimeFromTime(time.Now()),
 		Amount:    amount,
 		FromCard:  fromCard.CardNumber,
 		ToAccount: toCard.Account.AccountNumber,
@@ -253,4 +255,49 @@ func (r *RepoHandler) FillupData(cards []*models.Card) error {
 	}
 
 	return nil
+}
+
+func (r *RepoHandler) GetTransactionHistory(accountNumber string) ([]*models.Transaction, error) {
+	transactions := []*models.Transaction{}
+
+	// Get a handle to the collection
+	collection := r.client.Database(r.Config.MongoDB.Database).Collection(r.Config.MongoDB.Transaction_Collection)
+
+	filter := bson.M{"to_account": accountNumber}
+	// Find all documents in the collection
+	cur, err := collection.Find(context.Background(), filter)
+	if err != nil {
+		log.WithError(err).Error("Failed to find documents in MongoDB")
+
+		return nil, err
+	}
+
+	defer cur.Close(context.Background())
+
+	// Iterate over the documents and print their contents
+	for cur.Next(context.Background()) {
+		var doc bson.M
+		err := cur.Decode(&doc)
+		if err != nil {
+			log.Error(err)
+			continue
+		}
+
+		transactions = append(transactions, &models.Transaction{
+			ID:        doc["id"].(string),
+			Date:      doc["date"].(primitive.DateTime),
+			Amount:    doc["amount"].(float64),
+			FromCard:  doc["from_card"].(string),
+			ToAccount: doc["to_account"].(string),
+			Detail:    doc["details"].(string),
+		})
+	}
+
+	if err := cur.Err(); err != nil {
+		log.WithError(err).Error("Failed to iterate over documents in MongoDB")
+
+		return nil, err
+	}
+
+	return transactions, nil
 }
