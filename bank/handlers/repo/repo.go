@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,7 +16,7 @@ import (
 )
 
 type IRepoHandler interface {
-	Transfer(fromCard *models.Card, targetAccountNumber string, amount float64, description string) (bool, error)
+	Transfer(fromCard *models.Card, targetAccountNumber string, amount float64, description string) (int, error)
 	FillupData(cards []*models.Card) error
 }
 
@@ -194,43 +195,46 @@ func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount flo
 	return nil
 }
 
-func (r *RepoHandler) Transfer(fromCard *models.Card, targetAccountNumber string, amount float64, description string) (bool, error) {
-	dbFromCard, err := r.loadCardInfo("card_number", fromCard.CardNumber)
+func (r *RepoHandler) Transfer(fromCard *models.Card, targetAccountNumber string, amount float64, description string) (int, error) {
+	dbFromCard, err := r.loadCardInfo("cardnumber", fromCard.CardNumber)
 	if err != nil {
-		return false, err
+		return http.StatusInternalServerError, err
 	}
 	if fromCard.HolderName != dbFromCard.HolderName {
 		log.WithField("HolderName", fromCard.HolderName).Error("Invalid Holder Name")
-		return false, fmt.Errorf("invalid request, please check your card information")
+		return http.StatusBadRequest, fmt.Errorf("invalid request, please check your card information")
 	}
 	if fromCard.ExpDate != dbFromCard.ExpDate {
 		log.WithField("ExpDate", fromCard.ExpDate).Error("Invalid Expiration Date")
-		return false, fmt.Errorf("invalid request, please check your card information")
+		return http.StatusBadRequest, fmt.Errorf("invalid request, please check your card information")
 	}
 	if fromCard.CVV != dbFromCard.CVV {
 		log.WithField("CVV", fromCard.CVV).Error("Invalid CVV")
-		return false, fmt.Errorf("invalid request, please check your card information")
+		return http.StatusBadRequest, fmt.Errorf("invalid request, please check your card information")
 	}
 
 	fromCardCurrentAmount := dbFromCard.GetAmount()
 	if fromCardCurrentAmount < amount {
 		log.WithField("amount", amount).Error("Insufficient balance")
-		return false, fmt.Errorf("invalid request, Insuficient balance")
+		return http.StatusUnauthorized, fmt.Errorf("invalid request, Insuficient balance")
 	}
 
 	dbFromCard.SetAmount(fromCardCurrentAmount - amount)
 
-	dbToCard, err := r.loadCardInfo("account.account_number", targetAccountNumber)
+	dbToCard, err := r.loadCardInfo("account.accountnumber", targetAccountNumber)
 	if err != nil {
-		return false, err
+		return http.StatusBadRequest, err
 	}
 
 	dbToCard.SetAmount(dbToCard.GetAmount() + amount)
 
 	err = r.startTransaction(dbFromCard, dbToCard, amount, description)
 
-	transactionDone := err == nil
-	return transactionDone, err
+	status := http.StatusOK
+	if err != nil {
+		status = http.StatusInternalServerError
+	}
+	return status, err
 }
 
 func (r *RepoHandler) FillupData(cards []*models.Card) error {

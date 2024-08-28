@@ -94,15 +94,15 @@ func (h *HttpHandler) Transfer() func(w http.ResponseWriter, r *http.Request) {
 			CVV:        cvv,
 		}
 
-		isValid, err := h.repo.Transfer(fromCardInfo, targetAccountNumber, float64Amount, "Payment Process")
+		status, err := h.repo.Transfer(fromCardInfo, targetAccountNumber, float64Amount, "Payment Process")
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(status)
 			w.Write([]byte(err.Error()))
 			return
 		}
 
-		if !isValid {
-			w.WriteHeader(http.StatusUnauthorized)
+		if status != http.StatusOK {
+			w.WriteHeader(status)
 			w.Write([]byte("Card is not valid"))
 			return
 		}
