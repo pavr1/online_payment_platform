@@ -27,6 +27,7 @@ Due to the lack of time there were certain features that were not addressed, so 
 
 ### Prerequisites
 ------------
+* Need to have docker-destop installed locally
 * We are currently using mongodb and mongo-express for data storage. No further actios required, just follow the Installation and Execution parts.
 * This project is intended to be run locally by using docker-compose, since it was meant to be a tech test. No further features like CI/CD, deployments or any AWS-related features were added. 
 
