@@ -393,6 +393,8 @@ func (r *RepoHandler) Refund(referenceNumber string) (int, string, error) {
 	}
 
 	amount := transaction.Amount
+	fromCard.SetAmount(fromCard.GetAmount() + amount)
+	toAccount.SetAmount(toAccount.GetAmount() - amount)
 
 	referenceNumber, err = r.startTransaction(toAccount, fromCard, amount, "Reference: "+referenceNumber, transaction)
 
