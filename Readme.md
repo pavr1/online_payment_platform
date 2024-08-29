@@ -14,15 +14,20 @@ With the rapid expansion of e-commerce, there is a pressing need for an efficien
 * Online Payment Platform: An application that validates requests, stores card information, and manages payment requests and responses to and from the acquiring bank.
 * Acquiring Bank: Facilitates the actual retrieval of funds from the customer's card and transfers them to the merchant. Additionally, it validates card information and sends payment details to the relevant processing organization.
 
+### Areas Of Improvement
+Due to the lack of time there were certain features that were not addressed, so putting them here to have in mind those are important features to be built or done for a real application.
+* Sensitive data like credit card should be encrypted.
+* AWS cloud tools were not used but for cluster orchestration I would have used Helm, Deployment, Ingresses, Services and lastly pods.
+* There is sensitive data like db credentials and token security keys that must be used as secrets and not be exposed in the code.
+* This test is assuming seller previously logged and has the appropriate credentials to connect to the bank service.
+* Implemented jwt token authentication but did not have time to add audit trail or metrics (prometheus)
+
 ## Getting Started
 ---------------
 
-<!-- ### Prerequisites
+### Prerequisites
 ------------
-
-* List of prerequisites to run the project
-* List of dependencies required -->
-
+* We are currently using mongodb and mongo-express for data storage. No further actios required, just follow the Installation and Execution parts.
 * This project is intended to be run locally by using docker-compose, since it was meant to be a tech test. No further features like CI/CD, deployments or any AWS-related features were added. 
 
 ### Running the Project
@@ -149,14 +154,68 @@ This service creates and verifies tokens for user authentication.
 No models available
 
 
+## PAYMENT PLATFORM
+-----------------
+This service is a gateway between customers and the bank for processing purchases.
+
+### Endpoints
+------------
+
+* `/process/payment` - This endpoint is used for processing payments to the bank:
+    Request Header Values:
+        - card_number: buyers credit card number.
+        - holder_name: buyers name in the credit card.
+        - exp_date: credit card expiration date.
+        - cvv: credit card security code.
+        - target_account_number: seller's account number.
+        - amount: amount to transfer
+
+        Example:
+        curl --location --request POST 'http://localhost:8082/process/payment' \
+        --header 'card_number: xxxx-xxxx-xxxx-xxxx' \
+        --header 'holder_name: Emily Chen' \
+        --header 'exp_date: 02/2027' \
+        --header 'cvv: xxx' \
+        --header 'target_account_number: xxxxxxxxxxxx' \
+        --header 'amount: 1000' \
+        --header 'Authorization: Bearer [TOKEN]'
+
+* `/process/refund` - This endpoint is used making refunds of purchases already done. Every purchace generates a transaction log. The transaction log id is the reference number that needs to be added as a header for the refund to take place.
+    Request Header Values:
+        - reference_number: transaction id.
+
+        Example:
+        curl --location --request POST 'http://localhost:8082/process/refund' \
+        --header 'reference_number: 2f46a194-16a6-403f-a095-302d02cae7b7' \
+        --header 'Authorization: Bearer [TOKEN]'
+
+* `/history"` - This endpoint is used by the seller to retrieve all transactions made based on the seller's account number (Purchases and Refunds).
+    Request Header Values:
+        - account_number: seller's account number.
+
+        Example:
+        curl --location 'http://localhost:8082/history' \
+        --header 'account_number: xxxxxxxxxx' \
+        --header 'Authorization: Bearer [TOKEN]'
+
+### Models
+---------
+`type Transaction struct {
+	ID        string             `json:"id"`
+	Date      primitive.DateTime `json:"date"`
+	Amount    float64            `json:"amount"`
+	FromCard  string             `json:"fromcard"`
+	ToAccount string             `json:"toaccount"`
+	Detail    string             `json:"detail"`
+	Status    string             `json:"status"`
+}`
 
 
 ### Installation
 ------------
 Steps:
-* cd ./bank and run `make build`
-* cd ./auth and run `make build`
-* cd to main online_payment_platform dir and run `docker-compose build && docker-compose up`
+* In the Online_Payment_Platform workspace run `make all` for all projects to be built.
+* After all projects are built run `docker-compose build && docker-compose up` to start the environment locally.
 * Hit the following endpoint: `curl http://localhost:8080/fillup` - this will fill up data in the bank database.
 
 ### Execution
