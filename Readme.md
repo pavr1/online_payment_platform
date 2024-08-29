@@ -223,7 +223,7 @@ Steps:
 
 ### Execution
 ------------
-* In docker-compose we have mongo-express. You can access it by browsing `http://localhost:8081/db/bank/`
+* In docker-compose we have mongo-express to check mondodb data from the browser. You can access it by browsing `http://localhost:8081/db/bank/`
 * Transfers are done based on a buyers's credit card AND seller's account number. For testing please follow the guide below:
 ![alt text](image.png)
     - As seen in the image above, get the "BUYER'S" credit card number and the "SELLER'S" account number. Besides check both balances to compare after the transfer is done.
@@ -233,12 +233,14 @@ Steps:
         - Expiration Date: '02/2027'
         - CVV: '987'
         - Amount: 1234.56
+    
     For the seller we'll be using David Lee with the following account information:
         - Account Number: '9876543210',
         - Amount: 987.6500000000001
 
     STEPS:
     * Create Token: 
+
     `curl --location --request POST 'http://localhost:8181/auth/token' \
     --header 'X-User-Name: pvillalobos' \
     --header 'X-Entity-Name: PaymentPlatform' \
@@ -246,16 +248,18 @@ Steps:
 
     * Process Payment: 
       Replace [TOKEN] below with the value created in last step.
-    `curl` --location --request POST 'http://localhost:8082/process/payment' \
+
+    `curl --location --request POST 'http://localhost:8082/process/payment' \
     --header 'card_number: 4532-1143-8765-3211' \
     --header 'holder_name: Emily Chen' \
     --header 'exp_date: 02/2027' \
     --header 'cvv: 987' \
     --header 'target_account_number: 9876543210' \
     --header 'amount: 1000' \
-    --header 'Authorization: Bearer [TOKEN]'
+    --header 'Authorization: Bearer [TOKEN]'`
 
     * Go to the brower and enter this path: `http://localhost:8081/db/bank/`. Look for both accounts and check the money has been transfered. In this particular case the accounts are the first two.
+
     Before:
     ![alt text](image-1.png)
 
@@ -263,6 +267,7 @@ Steps:
     ![alt text](image-2.png)
 
     * Now lets verify the transaction logs:
+
     `curl --location 'http://localhost:8082/history' \
     --header 'account_number: 9876543210' \
     --header 'Authorization: Bearer [TOKEN]'`
@@ -273,11 +278,12 @@ Steps:
     * Once all of the above is verified, we'll proceed to refund the money. Reference number is the transaction.id field.
     ![alt text](image-4.png)
 
+
     `curl --location --request POST 'http://localhost:8082/process/refund' \
     --header 'reference_number: [ReferenceNumber]' \
     --header 'Authorization: Bearer [TOKEN]'`
 
-    Once refounded the original transaction log status switches to "Refunded" and a new transaction is created, both transactions have in detail the reference number of the other transaction
+    Once refunded the original transaction log status switches to "Refunded" and a new transaction is created with the inverted accounts, both transactions have in detail the reference number of the other transaction.
     ![alt text](image-5.png)
 
     Lastly check the money is substracted from the seller's account and added back to the buyer's account:
