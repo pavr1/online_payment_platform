@@ -105,6 +105,14 @@ func (r *RepoHandler) loadTransactionInfo(referenceNumber string) (*models.Trans
 		return nil, err
 	}
 
+	r.log.WithField("transaction.ID", transaction.ID).Info("Transaction information")
+	r.log.WithField("transaction.Date", transaction.Date).Info("Transaction information")
+	r.log.WithField("transaction.Amount", transaction.Amount).Info("Transaction information")
+	r.log.WithField("transaction.FromCard", transaction.FromCard).Info("Transaction information")
+	r.log.WithField("ansaction.ToAccount", transaction.ToAccount).Info("Transaction information")
+	r.log.WithField("transaction.Detail", transaction.Detail).Info("Transaction information")
+	r.log.WithField("transaction.Status", transaction.Status).Info("Transaction information")
+
 	return &transaction, nil
 }
 
@@ -112,25 +120,25 @@ func (r *RepoHandler) logTransaction(session mongo.Session, transaction *models.
 	// Insert the person into the "people" collection
 	collection := session.Client().Database(r.Config.MongoDB.Database).Collection(r.Config.MongoDB.Transaction_Collection)
 
-	doc := bson.D{}
+	// doc := bson.D{}
 
-	// Add fields to the document
-	doc = append(doc, bson.E{Key: "id", Value: transaction.ID})
-	doc = append(doc, bson.E{Key: "date", Value: transaction.Date})
-	doc = append(doc, bson.E{Key: "amount", Value: transaction.Amount})
-	doc = append(doc, bson.E{Key: "from_card", Value: transaction.FromCard})
-	doc = append(doc, bson.E{Key: "to_account", Value: transaction.ToAccount})
-	doc = append(doc, bson.E{Key: "details", Value: transaction.Detail})
-	doc = append(doc, bson.E{Key: "status", Value: transaction.Status})
+	// // Add fields to the document
+	// doc = append(doc, bson.E{Key: "id", Value: transaction.ID})
+	// doc = append(doc, bson.E{Key: "date", Value: transaction.Date})
+	// doc = append(doc, bson.E{Key: "amount", Value: transaction.Amount})
+	// doc = append(doc, bson.E{Key: "from_card", Value: transaction.FromCard})
+	// doc = append(doc, bson.E{Key: "to_account", Value: transaction.ToAccount})
+	// doc = append(doc, bson.E{Key: "details", Value: transaction.Detail})
+	// doc = append(doc, bson.E{Key: "status", Value: transaction.Status})
 
-	// Convert the document to BSON
-	bson, err := bson.Marshal(doc)
-	if err != nil {
-		log.WithError(err).Error("Failed to marshal person to BSON")
-		return err
-	}
+	// // Convert the document to BSON
+	// bson, err := bson.Marshal(doc)
+	// if err != nil {
+	// 	log.WithError(err).Error("Failed to marshal person to BSON")
+	// 	return err
+	// }
 
-	_, err = collection.InsertOne(context.Background(), bson)
+	_, err := collection.InsertOne(context.Background(), transaction)
 	if err != nil {
 		log.WithError(err).Error("Failed to insert person into MongoDB")
 
@@ -231,7 +239,7 @@ func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount flo
 	if transactionLog != nil {
 		//If transaction log provided, this means this transaction is being refunded
 		transactionLog.Status = "Refunded"
-		transactionLog.Detail = fmt.Sprintf("Transaction Refunded: %s", referenceNumber)
+		transactionLog.Detail = fmt.Sprintf("Reference: %s", referenceNumber)
 
 		err := r.UpdateTransaction(transactionLog)
 		if err != nil {
@@ -370,23 +378,23 @@ func (r *RepoHandler) Refund(referenceNumber string) (int, string, error) {
 		return http.StatusBadRequest, "", err
 	}
 
-	fromCard, err := r.loadCardInfo("from_card", transaction.FromCard)
+	fromCard, err := r.loadCardInfo("cardnumber", transaction.FromCard)
 	if err != nil {
-		r.log.WithField("from_card", transaction.FromCard).Error("Failed to load from card information")
+		r.log.WithField("cardnumber", transaction.FromCard).Error("Failed to load from card information")
 
 		return http.StatusBadRequest, "Failed to load from card information", err
 	}
 
 	toAccount, err := r.loadCardInfo("account.accountnumber", transaction.ToAccount)
 	if err != nil {
-		r.log.WithField("to_account", transaction.ToAccount).Error("Failed to load to account information")
+		r.log.WithField("account.accountnumber", transaction.ToAccount).Error("Failed to load to account information")
 
 		return http.StatusBadRequest, "Failed to load to account information", err
 	}
 
 	amount := transaction.Amount
 
-	referenceNumber, err = r.startTransaction(toAccount, fromCard, amount, "Refund - ReferenceNumber : "+referenceNumber, transaction)
+	referenceNumber, err = r.startTransaction(toAccount, fromCard, amount, "Reference: "+referenceNumber, transaction)
 
 	status := http.StatusOK
 	if err != nil {
