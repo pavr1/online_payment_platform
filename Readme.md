@@ -105,8 +105,8 @@ type Transaction struct {
 	Date        time.Time `json:"date"`
 	Amount      float64   `json:"amount"`
 	FromAccount string    `json:"from_account"`
-	ToAccount   string    `json:"to_account"`
-	Detail      string    `json:"details"`
+	ToAccount   string    `json:"toaccount"`
+	Detail      string    `json:"detail"`
 }
 
 
@@ -158,5 +158,65 @@ Steps:
 * cd ./auth and run `make build`
 * cd to main online_payment_platform dir and run `docker-compose build && docker-compose up`
 * Hit the following endpoint: `curl http://localhost:8080/fillup` - this will fill up data in the bank database.
-* Verify credit card data has been added. Go to `http://localhost:8081/db/bank/`
-* Look for any credit card with enough balance, then look for another record's account number. Transfers are done with FROM Credit Card TO Account Number.
+
+### Execution
+------------
+* In docker-compose we have mongo-express. You can access it by browsing `http://localhost:8081/db/bank/`
+* Transfers are done based on a buyers's credit card AND seller's account number. For testing please follow the guide below:
+![alt text](image.png)
+    - As seen in the image above, get the "BUYER'S" credit card number and the "SELLER'S" account number. Besides check both balances to compare after the transfer is done.
+    For this example the buyer would be Emily Chen with the following card information:
+        - Card Number: '4532-1143-8765-3211'
+        - Holder Name: 'Emily Chen'
+        - Expiration Date: '02/2027'
+        - CVV: '987'
+        - Amount: 1234.56
+    For the seller we'll be using David Lee with the following account information:
+        - Account Number: '9876543210',
+        - Amount: 987.6500000000001
+
+    STEPS:
+    * Create Token: 
+    `curl --location --request POST 'http://localhost:8181/auth/token' \
+    --header 'X-User-Name: pvillalobos' \
+    --header 'X-Entity-Name: PaymentPlatform' \
+    --header 'X-Entity-Key: cGF5bWVudC1wbGF0Zm9ybS1zZWNyZXQtYXV0aGVudGljYXRpb24='`
+
+    * Process Payment: 
+      Replace [TOKEN] below with the value created in last step.
+    `curl` --location --request POST 'http://localhost:8082/process/payment' \
+    --header 'card_number: 4532-1143-8765-3211' \
+    --header 'holder_name: Emily Chen' \
+    --header 'exp_date: 02/2027' \
+    --header 'cvv: 987' \
+    --header 'target_account_number: 9876543210' \
+    --header 'amount: 1000' \
+    --header 'Authorization: Bearer [TOKEN]'
+
+    * Go to the brower and enter this path: `http://localhost:8081/db/bank/`. Look for both accounts and check the money has been transfered. In this particular case the accounts are the first two.
+    Before:
+    ![alt text](image-1.png)
+
+    After:
+    ![alt text](image-2.png)
+
+    * Now lets verify the transaction logs:
+    `curl --location 'http://localhost:8082/history' \
+    --header 'account_number: 9876543210' \
+    --header 'Authorization: Bearer [TOKEN]'`
+
+    Additionally you can go to the mongo express path `http://localhost:8081/db/bank/` and select the 'Transaction' collection.
+    ![alt text](image-3.png)
+
+    * Once all of the above is verified, we'll proceed to refund the money. Reference number is the transaction.id field.
+    ![alt text](image-4.png)
+
+    `curl --location --request POST 'http://localhost:8082/process/refund' \
+    --header 'reference_number: [ReferenceNumber]' \
+    --header 'Authorization: Bearer [TOKEN]'`
+
+    Once refounded the original transaction log status switches to "Refunded" and a new transaction is created, both transactions have in detail the reference number of the other transaction
+    ![alt text](image-5.png)
+
+    Lastly check the money is substracted from the seller's account and added back to the buyer's account:
+    ![alt text](image-6.png)

@@ -120,24 +120,6 @@ func (r *RepoHandler) logTransaction(session mongo.Session, transaction *models.
 	// Insert the person into the "people" collection
 	collection := session.Client().Database(r.Config.MongoDB.Database).Collection(r.Config.MongoDB.Transaction_Collection)
 
-	// doc := bson.D{}
-
-	// // Add fields to the document
-	// doc = append(doc, bson.E{Key: "id", Value: transaction.ID})
-	// doc = append(doc, bson.E{Key: "date", Value: transaction.Date})
-	// doc = append(doc, bson.E{Key: "amount", Value: transaction.Amount})
-	// doc = append(doc, bson.E{Key: "from_card", Value: transaction.FromCard})
-	// doc = append(doc, bson.E{Key: "to_account", Value: transaction.ToAccount})
-	// doc = append(doc, bson.E{Key: "details", Value: transaction.Detail})
-	// doc = append(doc, bson.E{Key: "status", Value: transaction.Status})
-
-	// // Convert the document to BSON
-	// bson, err := bson.Marshal(doc)
-	// if err != nil {
-	// 	log.WithError(err).Error("Failed to marshal person to BSON")
-	// 	return err
-	// }
-
 	_, err := collection.InsertOne(context.Background(), transaction)
 	if err != nil {
 		log.WithError(err).Error("Failed to insert person into MongoDB")
@@ -217,11 +199,32 @@ func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount flo
 	}
 
 	referenceNumber := uuid.New().String()
+
+	fromCardNumber := fromCard.CardNumber
+
+	if transactionLog != nil {
+		//If transaction log provided, this means this transaction is being refunded
+		transactionLog.Status = "Refunded"
+		transactionLog.Detail = fmt.Sprintf("Reference: %s", referenceNumber)
+
+		//if refund, we want to see a transaction from account to account
+		fromCardNumber = fromCard.Account.AccountNumber
+
+		err := r.UpdateTransaction(transactionLog)
+		if err != nil {
+			log.WithError(err).Error("Failed to log transaction")
+
+			return "", err
+		}
+
+		log.WithField("id", transactionLog.ID).Info("Transaction log updated successfully")
+	}
+
 	transaction := models.Transaction{
 		ID:        referenceNumber,
 		Date:      primitive.NewDateTimeFromTime(time.Now()),
 		Amount:    amount,
-		FromCard:  fromCard.CardNumber,
+		FromCard:  fromCardNumber,
 		ToAccount: toCard.Account.AccountNumber,
 		Detail:    description,
 		Status:    "Approved",
@@ -235,21 +238,6 @@ func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount flo
 	}
 
 	log.WithField("id", transaction.ID).Info("Transaction log inserted successfully")
-
-	if transactionLog != nil {
-		//If transaction log provided, this means this transaction is being refunded
-		transactionLog.Status = "Refunded"
-		transactionLog.Detail = fmt.Sprintf("Reference: %s", referenceNumber)
-
-		err := r.UpdateTransaction(transactionLog)
-		if err != nil {
-			log.WithError(err).Error("Failed to log transaction")
-
-			return "", err
-		}
-
-		log.WithField("id", transactionLog.ID).Info("Transaction log updated successfully")
-	}
 
 	// Commit the transaction
 	if err := session.CommitTransaction(context.Background()); err != nil {
@@ -341,7 +329,12 @@ func (r *RepoHandler) GetTransactionHistory(accountNumber string) ([]*models.Tra
 	// Get a handle to the collection
 	collection := r.client.Database(r.Config.MongoDB.Database).Collection(r.Config.MongoDB.Transaction_Collection)
 
-	filter := bson.M{"to_account": accountNumber}
+	filter := bson.M{
+		"$or": []bson.M{
+			{"toaccount": accountNumber},
+			{"fromcard": accountNumber},
+		},
+	}
 	// Find all documents in the collection
 	cur, err := collection.Find(context.Background(), filter)
 	if err != nil {
@@ -365,9 +358,10 @@ func (r *RepoHandler) GetTransactionHistory(accountNumber string) ([]*models.Tra
 			ID:        doc["id"].(string),
 			Date:      doc["date"].(primitive.DateTime),
 			Amount:    doc["amount"].(float64),
-			FromCard:  doc["from_card"].(string),
-			ToAccount: doc["to_account"].(string),
-			Detail:    doc["details"].(string),
+			FromCard:  doc["fromcard"].(string),
+			ToAccount: doc["toaccount"].(string),
+			Detail:    doc["detail"].(string),
+			Status:    doc["status"].(string),
 		})
 	}
 

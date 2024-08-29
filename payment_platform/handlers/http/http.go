@@ -128,8 +128,16 @@ func (h *HttpHandler) ProcessPurchase() func(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
-		//todo: this token should be used only for validating payment_platform access, a brand new one should be created for bank authorization
-		statusCode, body, err = h.bankProvider.ProcessPayment(token, cardNumber, holderName, expDate, cvv, targetAccountNumber, float64Amount)
+		bankToken, err := h.bankProvider.CreateBankToken(holderName)
+		if err != nil {
+			h.log.WithError(err).Error("Failed to create bank token")
+
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Failed to create bank token"))
+			return
+		}
+
+		statusCode, body, err = h.bankProvider.ProcessPayment(bankToken, cardNumber, holderName, expDate, cvv, targetAccountNumber, float64Amount)
 		if err != nil {
 			h.log.WithError(err).Error("Failed to process payment with the bank")
 
@@ -200,12 +208,20 @@ func (h *HttpHandler) GetTransactionHistory() func(w http.ResponseWriter, r *htt
 			return
 		}
 
-		transactions, err := h.bankProvider.GetHistory(token, accountNumber)
+		bankToken, err := h.bankProvider.CreateBankToken(accountNumber)
 		if err != nil {
-			h.log.WithError(err).Error("Failed getting transaction los from the bank")
+			h.log.WithError(err).Error("Failed to create bank token")
+
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Failed to create bank token"))
+			return
+		}
+		transactions, err := h.bankProvider.GetHistory(bankToken, accountNumber)
+		if err != nil {
+			h.log.WithError(err).Error("Failed getting transaction logs from the bank")
 
 			w.WriteHeader(statusCode)
-			w.Write([]byte("Failed getting transaction los from the bank"))
+			w.Write([]byte("Failed getting transaction logs from the bank"))
 			return
 		}
 
@@ -278,7 +294,16 @@ func (h *HttpHandler) ProcessRefund() func(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		statusCode, body, err = h.bankProvider.ProcessRefund(token, referenceNumber)
+		bankToken, err := h.bankProvider.CreateBankToken(referenceNumber)
+		if err != nil {
+			h.log.WithError(err).Error("Failed to create bank token")
+
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Failed to create bank token"))
+			return
+		}
+
+		statusCode, body, err = h.bankProvider.ProcessRefund(bankToken, referenceNumber)
 		if err != nil {
 			h.log.WithError(err).Error("Failed processing refund")
 

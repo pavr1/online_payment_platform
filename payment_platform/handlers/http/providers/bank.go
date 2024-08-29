@@ -16,6 +16,7 @@ type IBankProvider interface {
 	ProcessPayment(token, cardNumber, holderName, expDate, cvv, targetAccountNumber string, amount float64) (int, string, error)
 	ProcessRefund(token, referenceNumber string) (int, string, error)
 	GetHistory(token, accountNumber string) ([]*models.Transaction, error)
+	CreateBankToken(userName string) (string, error)
 }
 type BankProvider struct {
 	log    *log.Logger
@@ -140,4 +141,36 @@ func (b *BankProvider) ProcessRefund(token, referenceNumber string) (int, string
 	}
 
 	return resp.StatusCode, string(body), nil
+}
+
+func (b *BankProvider) CreateBankToken(userName string) (string, error) {
+	req, err := http.NewRequest(http.MethodPost, b.config.Auth.Path, nil)
+	if err != nil {
+		b.log.WithField("Path", b.config.Auth.Path).WithError(err).Error("Failed to create request")
+
+		return "", err
+	}
+
+	//todo: encrypt all this data
+	req.Header.Set("X-User-Name", userName)
+	req.Header.Set("X-Entity-Name", "Bank")
+	req.Header.Set("X-Entity-Key", b.config.Bank.EntityKey)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		b.log.WithField("Path", b.config.Auth.Path).WithError(err).Error("Failed to send request")
+
+		return "", err
+	}
+
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		b.log.WithError(err).Error("Failed to read response")
+
+		return "", err
+	}
+
+	return string(body), nil
 }
