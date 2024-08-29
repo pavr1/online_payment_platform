@@ -33,9 +33,11 @@ Due to the lack of time there were certain features that were not addressed, so 
 ### Running the Project
 -------------------
 
-This repo is a worspace and it has X different projects. Please review the following list of projects and the appropriate steps to follow to run the application:
+This repo is a worspace and it has 3 different projects. Please review the following list of projects and the appropriate steps to follow to run the application:
 
 * Bank: This is the Acquiring Bank, responsible of checking accounts and validate credit cards. 
+* Auth: This service creates and validates tokens.
+* Payment Platform: This service connects to the bank for processing requests (Payments, Transactional History and Refunds)
 
 
 ## BANK
