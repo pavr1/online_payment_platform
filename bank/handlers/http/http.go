@@ -400,3 +400,62 @@ func (h *HttpHandler) GetTransactionHistory() func(w http.ResponseWriter, r *htt
 		w.Write(transacionBytes)
 	}
 }
+
+func (h *HttpHandler) Refund() func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			w.Write([]byte("Method not allowed"))
+			return
+		}
+
+		token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if token == "" {
+			h.log.Error("Token is required")
+
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Token is required"))
+			return
+		}
+
+		statusCode, body, err := h.bankAuthenticator.IsValidToken(token)
+		if err != nil {
+			w.WriteHeader(statusCode)
+			w.Write([]byte("Failed to validate token"))
+			return
+		}
+
+		if statusCode != http.StatusOK {
+			w.WriteHeader(statusCode)
+			w.Write([]byte(body))
+			return
+		}
+
+		referenceNumber := r.Header.Get("reference_number")
+		if referenceNumber == "" {
+			h.log.Error("reference_number is required")
+
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("reference_number is required"))
+			return
+		}
+
+		status, referenceNumber, err := h.repo.Refund(referenceNumber)
+		if err != nil {
+			w.WriteHeader(status)
+			w.Write([]byte("failed making transfer"))
+			return
+		}
+
+		if status != http.StatusOK {
+			h.log.Error("Card is not valid")
+
+			w.WriteHeader(status)
+			w.Write([]byte("Card is not valid"))
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Reference Numer: " + referenceNumber))
+	}
+}

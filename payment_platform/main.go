@@ -27,6 +27,7 @@ func main() {
 	httpHandler := _http.NewHttpHandler(log, config, tokenProvider, bankProvider, httpClient)
 
 	router.HandleFunc("/process/payment", httpHandler.ProcessPurchase())
+	router.HandleFunc("/process/refund", httpHandler.ProcessRefund())
 	router.HandleFunc("/history", httpHandler.GetTransactionHistory())
 
 	log.WithField("port", config.Server.Port).Info("Listening to Server...")

@@ -11,4 +11,5 @@ type Transaction struct {
 	FromCard  string             `json:"from_card"`
 	ToAccount string             `json:"to_account"`
 	Detail    string             `json:"details"`
+	Status    string             `json:"status"`
 }

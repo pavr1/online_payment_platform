@@ -14,6 +14,7 @@ import (
 
 type IBankProvider interface {
 	ProcessPayment(token, cardNumber, holderName, expDate, cvv, targetAccountNumber string, amount float64) (int, string, error)
+	ProcessRefund(token, referenceNumber string) (int, string, error)
 	GetHistory(token, accountNumber string) ([]*models.Transaction, error)
 }
 type BankProvider struct {
@@ -106,4 +107,37 @@ func (b *BankProvider) GetHistory(token, accountNumber string) ([]*models.Transa
 	}
 
 	return transactions, nil
+}
+
+func (b *BankProvider) ProcessRefund(token, referenceNumber string) (int, string, error) {
+	endpoint := fmt.Sprintf("%s/refund", b.config.Bank.Host)
+
+	req, err := http.NewRequest(http.MethodPost, endpoint, nil)
+	if err != nil {
+		b.log.WithField("Path", endpoint).WithError(err).Error("Failed to create request")
+
+		return http.StatusInternalServerError, "", err
+	}
+
+	//todo: encrypt all this data
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("reference_number", referenceNumber)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		b.log.WithField("Path", endpoint).WithError(err).Error("Failed to send request")
+
+		return http.StatusInternalServerError, "", err
+	}
+
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		b.log.WithError(err).Error("Failed to read response")
+
+		return http.StatusInternalServerError, "", err
+	}
+
+	return resp.StatusCode, string(body), nil
 }

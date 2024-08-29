@@ -18,6 +18,7 @@ import (
 
 type IRepoHandler interface {
 	Transfer(fromCard *models.Card, targetAccountNumber string, amount float64, description string) (int, string, error)
+	Refund(referenceNumber string) (int, string, error)
 	GetTransactionHistory(accountNumber string) ([]*models.Transaction, error)
 	FillupData(cards []*models.Card) error
 }
@@ -89,6 +90,24 @@ func (r *RepoHandler) loadCardInfo(fieldName, valueName string) (*models.Card, e
 	return &card, nil
 }
 
+func (r *RepoHandler) loadTransactionInfo(referenceNumber string) (*models.Transaction, error) {
+	// Get the database and collection
+	db := r.client.Database(r.Config.MongoDB.Database)
+	collection := db.Collection(r.Config.MongoDB.Transaction_Collection)
+
+	// Find the document by ID
+	filter := bson.M{"id": referenceNumber}
+	var transaction models.Transaction
+	err := collection.FindOne(context.Background(), filter).Decode(&transaction)
+	if err != nil {
+		log.WithField("id", referenceNumber).WithError(err).Error("Failed to find document with specified reference number")
+
+		return nil, err
+	}
+
+	return &transaction, nil
+}
+
 func (r *RepoHandler) logTransaction(session mongo.Session, transaction *models.Transaction) error {
 	// Insert the person into the "people" collection
 	collection := session.Client().Database(r.Config.MongoDB.Database).Collection(r.Config.MongoDB.Transaction_Collection)
@@ -102,6 +121,7 @@ func (r *RepoHandler) logTransaction(session mongo.Session, transaction *models.
 	doc = append(doc, bson.E{Key: "from_card", Value: transaction.FromCard})
 	doc = append(doc, bson.E{Key: "to_account", Value: transaction.ToAccount})
 	doc = append(doc, bson.E{Key: "details", Value: transaction.Detail})
+	doc = append(doc, bson.E{Key: "status", Value: transaction.Status})
 
 	// Convert the document to BSON
 	bson, err := bson.Marshal(doc)
@@ -120,7 +140,27 @@ func (r *RepoHandler) logTransaction(session mongo.Session, transaction *models.
 	return nil
 }
 
-func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount float64, description string) (string, error) {
+func (r *RepoHandler) UpdateTransaction(transaction *models.Transaction) error {
+	// Get the database and collection
+	db := r.client.Database(r.Config.MongoDB.Database)
+	collection := db.Collection(r.Config.MongoDB.Transaction_Collection)
+
+	// Update the document by ID
+	filter := bson.M{"id": transaction.ID}
+	update := bson.M{"$set": transaction}
+	_, err := collection.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		log.WithError(err).Error("Failed to update document in MongoDB")
+
+		return err
+	}
+
+	log.WithField("id", transaction.ID).Info("Transaction log updated successfully")
+
+	return nil
+}
+
+func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount float64, description string, transactionLog *models.Transaction) (string, error) {
 	log.WithFields(log.Fields{
 		"fromCard": fromCard,
 		"toCard":   toCard,
@@ -169,7 +209,6 @@ func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount flo
 	}
 
 	referenceNumber := uuid.New().String()
-
 	transaction := models.Transaction{
 		ID:        referenceNumber,
 		Date:      primitive.NewDateTimeFromTime(time.Now()),
@@ -177,11 +216,32 @@ func (r *RepoHandler) startTransaction(fromCard, toCard *models.Card, amount flo
 		FromCard:  fromCard.CardNumber,
 		ToAccount: toCard.Account.AccountNumber,
 		Detail:    description,
+		Status:    "Approved",
 	}
 
-	r.logTransaction(session, &transaction)
+	err = r.logTransaction(session, &transaction)
+	if err != nil {
+		log.WithError(err).Error("Failed to log transaction")
 
-	log.WithField("id", transaction.ID).Info("Transaction logs inserted successfully")
+		return "", err
+	}
+
+	log.WithField("id", transaction.ID).Info("Transaction log inserted successfully")
+
+	if transactionLog != nil {
+		//If transaction log provided, this means this transaction is being refunded
+		transactionLog.Status = "Refunded"
+		transactionLog.Detail = fmt.Sprintf("Transaction Refunded: %s", referenceNumber)
+
+		err := r.UpdateTransaction(transactionLog)
+		if err != nil {
+			log.WithError(err).Error("Failed to log transaction")
+
+			return "", err
+		}
+
+		log.WithField("id", transactionLog.ID).Info("Transaction log updated successfully")
+	}
 
 	// Commit the transaction
 	if err := session.CommitTransaction(context.Background()); err != nil {
@@ -232,7 +292,7 @@ func (r *RepoHandler) Transfer(fromCard *models.Card, targetAccountNumber string
 
 	dbToCard.SetAmount(dbToCard.GetAmount() + amount)
 
-	referenceNumber, err := r.startTransaction(dbFromCard, dbToCard, amount, description)
+	referenceNumber, err := r.startTransaction(dbFromCard, dbToCard, amount, description, nil)
 
 	status := http.StatusOK
 	if err != nil {
@@ -300,4 +360,37 @@ func (r *RepoHandler) GetTransactionHistory(accountNumber string) ([]*models.Tra
 	}
 
 	return transactions, nil
+}
+
+func (r *RepoHandler) Refund(referenceNumber string) (int, string, error) {
+	transaction, err := r.loadTransactionInfo(referenceNumber)
+	if err != nil {
+		r.log.WithField("Reference Number", referenceNumber).Error("Failed to load transaction information")
+
+		return http.StatusBadRequest, "", err
+	}
+
+	fromCard, err := r.loadCardInfo("from_card", transaction.FromCard)
+	if err != nil {
+		r.log.WithField("from_card", transaction.FromCard).Error("Failed to load from card information")
+
+		return http.StatusBadRequest, "Failed to load from card information", err
+	}
+
+	toAccount, err := r.loadCardInfo("account.accountnumber", transaction.ToAccount)
+	if err != nil {
+		r.log.WithField("to_account", transaction.ToAccount).Error("Failed to load to account information")
+
+		return http.StatusBadRequest, "Failed to load to account information", err
+	}
+
+	amount := transaction.Amount
+
+	referenceNumber, err = r.startTransaction(toAccount, fromCard, amount, "Refund - ReferenceNumber : "+referenceNumber, transaction)
+
+	status := http.StatusOK
+	if err != nil {
+		status = http.StatusInternalServerError
+	}
+	return status, referenceNumber, err
 }

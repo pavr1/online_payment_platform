@@ -230,3 +230,72 @@ func (h *HttpHandler) GetTransactionHistory() func(w http.ResponseWriter, r *htt
 		w.Write(transactionLogs)
 	}
 }
+
+func (h *HttpHandler) ProcessRefund() func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			h.log.Error("Method not allowed")
+
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			w.Write([]byte("Method not allowed"))
+			return
+		}
+
+		h.log.Info("Handling refund request...")
+
+		token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if token == "" {
+			h.log.Error("Token is required")
+
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Token is required"))
+			return
+		}
+
+		statusCode, body, err := h.tokenProvider.IsValidToken(token)
+		if err != nil {
+			h.log.WithError(err).Error("Failed to validate token")
+
+			w.WriteHeader(statusCode)
+			w.Write([]byte("Failed to validate token"))
+			return
+		}
+
+		if statusCode != http.StatusOK {
+			h.log.WithField("StatusCode", statusCode).WithField("Body", body).Error("Failed to validate token")
+
+			w.WriteHeader(statusCode)
+			w.Write([]byte(body))
+			return
+		}
+
+		referenceNumber := r.Header.Get("reference_number")
+		if referenceNumber == "" {
+			h.log.Error("reference_number is required")
+
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("reference_number is required"))
+			return
+		}
+
+		statusCode, body, err = h.bankProvider.ProcessRefund(token, referenceNumber)
+		if err != nil {
+			h.log.WithError(err).Error("Failed processing refund")
+
+			w.WriteHeader(statusCode)
+			w.Write([]byte("Failed processing refund"))
+			return
+		}
+
+		if statusCode != http.StatusOK {
+			h.log.WithField("StatusCode", statusCode).WithField("Body", body).Error("Transaction logs fetch from the bank failed")
+
+			w.WriteHeader(statusCode)
+			w.Write([]byte(body))
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(body))
+	}
+}
