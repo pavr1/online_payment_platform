@@ -240,7 +240,6 @@ Steps:
 
     STEPS:
     * Create Token: 
-
     curl --location --request POST 'http://localhost:8181/auth/token' \
     --header 'X-User-Name: pvillalobos' \
     --header 'X-Entity-Name: PaymentPlatform' \
@@ -248,7 +247,6 @@ Steps:
 
     * Process Payment: 
       Replace [TOKEN] below with the value created in last step.
-
     curl --location --request POST 'http://localhost:8082/process/payment' \
     --header 'card_number: 4532-1143-8765-3211' \
     --header 'holder_name: Emily Chen' \
@@ -267,7 +265,6 @@ Steps:
     ![alt text](image-2.png)
 
     * Now lets verify the transaction logs:
-
     curl --location 'http://localhost:8082/history' \
     --header 'account_number: 9876543210' \
     --header 'Authorization: Bearer [TOKEN]'
@@ -277,7 +274,6 @@ Steps:
 
     * Once all of the above is verified, we'll proceed to refund the money. Reference number is the transaction.id field.
     ![alt text](image-4.png)
-
 
     curl --location --request POST 'http://localhost:8082/process/refund' \
     --header 'reference_number: [ReferenceNumber]' \
