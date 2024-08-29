@@ -298,6 +298,16 @@ func (r *RepoHandler) Transfer(fromCard *models.Card, targetAccountNumber string
 		return http.StatusBadRequest, "", err
 	}
 
+	if fromCard.CardNumber == dbToCard.CardNumber {
+		r.log.WithFields(log.Fields{
+			"fromCard": fromCard.CardNumber,
+			"toCard":   targetAccountNumber,
+			"amount":   amount,
+		}).Warn("Cannot transfer to same card")
+
+		return http.StatusBadRequest, "", fmt.Errorf("invalid request, cannot transfer to same card")
+	}
+
 	dbToCard.SetAmount(dbToCard.GetAmount() + amount)
 
 	referenceNumber, err := r.startTransaction(dbFromCard, dbToCard, amount, description, nil)
