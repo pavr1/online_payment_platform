@@ -239,48 +239,48 @@ Steps:
         - Amount: 987.6500000000001
 
     STEPS:
-    * Create Token: 
-    curl --location --request POST 'http://localhost:8181/auth/token' \
-    --header 'X-User-Name: pvillalobos' \
-    --header 'X-Entity-Name: PaymentPlatform' \
-    --header 'X-Entity-Key: cGF5bWVudC1wbGF0Zm9ybS1zZWNyZXQtYXV0aGVudGljYXRpb24='
+        * Create Token: 
+            curl --location --request POST 'http://localhost:8181/auth/token' \
+            --header 'X-User-Name: pvillalobos' \
+            --header 'X-Entity-Name: PaymentPlatform' \
+            --header 'X-Entity-Key: cGF5bWVudC1wbGF0Zm9ybS1zZWNyZXQtYXV0aGVudGljYXRpb24='
 
-    * Process Payment: 
-      Replace [TOKEN] below with the value created in last step.
-    curl --location --request POST 'http://localhost:8082/process/payment' \
-    --header 'card_number: 4532-1143-8765-3211' \
-    --header 'holder_name: Emily Chen' \
-    --header 'exp_date: 02/2027' \
-    --header 'cvv: 987' \
-    --header 'target_account_number: 9876543210' \
-    --header 'amount: 1000' \
-    --header 'Authorization: Bearer [TOKEN]'
+        * Process Payment: 
+        Replace [TOKEN] below with the value created in last step.
+            curl --location --request POST 'http://localhost:8082/process/payment' \
+            --header 'card_number: 4532-1143-8765-3211' \
+            --header 'holder_name: Emily Chen' \
+            --header 'exp_date: 02/2027' \
+            --header 'cvv: 987' \
+            --header 'target_account_number: 9876543210' \
+            --header 'amount: 1000' \
+            --header 'Authorization: Bearer [TOKEN]'
 
-    * Go to the brower and enter this path: `http://localhost:8081/db/bank/`. Look for both accounts and check the money has been transfered. In this particular case the accounts are the first two.
+        * Go to the brower and enter this path: `http://localhost:8081/db/bank/`. Look for both accounts and check the money has been transfered. In this particular case the accounts are the first two.
 
-    Before:
-    ![alt text](image-1.png)
+        Before:
+        ![alt text](image-1.png)
 
-    After:
-    ![alt text](image-2.png)
+        After:
+        ![alt text](image-2.png)
 
-    * Now lets verify the transaction logs:
-    curl --location 'http://localhost:8082/history' \
-    --header 'account_number: 9876543210' \
-    --header 'Authorization: Bearer [TOKEN]'
+        * Now lets verify the transaction logs:
+            curl --location 'http://localhost:8082/history' \
+            --header 'account_number: 9876543210' \
+            --header 'Authorization: Bearer [TOKEN]'
 
-    Additionally you can go to the mongo express path `http://localhost:8081/db/bank/` and select the 'Transaction' collection.
-    ![alt text](image-3.png)
+        Additionally you can go to the mongo express path `http://localhost:8081/db/bank/` and select the 'Transaction' collection.
+        ![alt text](image-3.png)
 
-    * Once all of the above is verified, we'll proceed to refund the money. Reference number is the transaction.id field.
-    ![alt text](image-4.png)
+        * Once all of the above is verified, we'll proceed to refund the money. Reference number is the transaction.id field.
+        ![alt text](image-4.png)
 
-    curl --location --request POST 'http://localhost:8082/process/refund' \
-    --header 'reference_number: [ReferenceNumber]' \
-    --header 'Authorization: Bearer [TOKEN]'
+            curl --location --request POST 'http://localhost:8082/process/refund' \
+            --header 'reference_number: [ReferenceNumber]' \
+            --header 'Authorization: Bearer [TOKEN]'
 
-    Once refunded the original transaction log status switches to "Refunded" and a new transaction is created with the inverted accounts, both transactions have in detail the reference number of the other transaction.
-    ![alt text](image-5.png)
+        Once refunded the original transaction log status switches to "Refunded" and a new transaction is created with the inverted accounts, both transactions have in detail the reference number of the other transaction.
+        ![alt text](image-5.png)
 
-    Lastly check the money is substracted from the seller's account and added back to the buyer's account:
-    ![alt text](image-6.png)
+        Lastly check the money is substracted from the seller's account and added back to the buyer's account:
+        ![alt text](image-6.png)
